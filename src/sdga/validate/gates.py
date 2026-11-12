@@ -175,8 +175,9 @@ def seam_ratio(image: Image.Image) -> float:
     ]
     interior = median(horizontal_steps + vertical_steps)
     if interior <= 1e-9:
-        # A perfectly flat tile is seamless by definition; guard the division.
-        return 0.0 if seam <= 1e-9 else float("inf")
+        # A perfectly flat tile is seamless by definition; guard the division. A finite
+        # sentinel keeps run.json serialisable (no Infinity, which is not valid JSON).
+        return 0.0 if seam <= 1e-9 else 999.0
     return seam / interior
 
 
