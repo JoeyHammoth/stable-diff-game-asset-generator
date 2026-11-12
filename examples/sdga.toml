@@ -1,0 +1,57 @@
+schema = 1
+
+[project]
+name = "example"
+root = "."
+asset_globs = ["assets/**/*.yaml"]
+runs_dir = "runs"
+packs_dir = "packs"
+cache_dir = ".sdga/cache"
+
+[style]
+name = "example"
+trigger_token = "ExampleStyle"
+grid = 32                          # final pixel grid edge
+generation_size = [512, 512]       # render size before downscale
+palette = "palettes/example16.gpl" # placeholder palette; swap for a licensed one
+palette_colors = 16
+checkpoint = "sd_v1-5.safetensors"
+seed_policy = "derived"            # fixed | derived | random
+positive_anchors = [
+  "ExampleStyle", "flat colors", "clean pixel art",
+  "crisp outlines", "limited palette", "orthogonal view",
+  "2d game art", "retro",
+]
+negative_anchors = [
+  "photorealistic", "blurry", "gradient", "smooth shading",
+  "3d render", "watermark", "text", "anti-aliasing", "low quality",
+]
+
+[[style.loras]]
+name = "example_style.safetensors"
+strength_model = 0.85
+strength_clip = 0.85
+
+[backend]
+# "fake" keeps this example runnable with no GPU and no ComfyUI.
+# Switch to "comfyui" once the adapter exists (phase P1) and a server is listening.
+kind = "fake"
+url = "http://127.0.0.1:8188"
+ws_url = "ws://127.0.0.1:8188/ws"
+timeout_s = 900
+poll_interval_s = 0.5
+max_concurrency = 1
+retry = { attempts = 2, backoff_s = 5.0 }
+
+[pack]
+id_template = "{project}-{date}-{seq}"
+require_review = true
+include_raw = false
+
+[gates]
+on_fail = "reject"
+
+[gates.thresholds]
+max_unique_colors = 16
+seam_edge_ratio = 1.5
+audio_peak_dbfs = -3.0

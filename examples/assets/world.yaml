@@ -1,0 +1,22 @@
+schema: 1
+defaults:
+  params: { steps: 25, cfg: 7.0, sampler: euler_ancestral, scheduler: karras }
+
+assets:
+  - id: terrain/moss_stone
+    kind: terrain_tile
+    prompt: >-
+      seamless tileable mossy cobblestone floor, top-down 2d game tile,
+      dark grey and green tones, flat, no gradients
+    size: [32, 32]
+    references:
+      style_anchor: concepts/cleaned/dungeon_floor.png
+    params: { denoise: 1.0 }
+    gates: { seamless_tile: error }
+
+  - id: terrain/moss_stone_normal
+    kind: normal_map
+    depends_on: [terrain/moss_stone]
+    size: [32, 32]
+    params: { height_strength: 2.0, flip_g: false }
+    gates: { normal_map_valid: error }

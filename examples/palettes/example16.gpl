@@ -1,0 +1,22 @@
+GIMP Palette
+Name: Example 16 (placeholder)
+Columns: 8
+# A stand-in palette so the example project runs end to end.
+# Replace with a licensed palette (e.g. Endesga-32) before generating real art.
+#
+ 31  34  41	darkest
+ 45  52  60	dark
+ 58  99  64	moss shadow
+ 74 124  74	moss
+120 164  96	moss light
+198 214 163	moss highlight
+138  96  64	dirt dark
+176 132  88	dirt
+214 180 128	dirt light
+ 96  64  96	plum dark
+148 104 148	plum
+200 152 200	plum light
+ 64  96 148	steel dark
+ 96 140 200	steel
+200  72  72	accent red
+240 168  72	accent amber

@@ -1,0 +1,24 @@
+schema: 1
+
+assets:
+  - id: char/ranger_walk
+    kind: sprite_sheet
+    prompt: >-
+      full body forest ranger walking cycle, brown leather armor,
+      green hooded cloak, side view, transparent background
+    size: [32, 32]          # per cell
+    frames: 8
+    layout: { cols: 8, rows: 1 }
+    references:
+      style_anchor: concepts/cleaned/ranger_front.png
+      pose: style/skeletons/walk_8frame.png
+    candidates: 4
+    params: { steps: 28, cfg: 7.5 }
+
+  - id: ui/button_normal
+    kind: ui_element
+    prompt: >-
+      rounded stone button, empty center, no text, 9-slice friendly frame
+    size: [64, 16]
+    references:
+      wireframe: style/wireframes/button_64x16.png
