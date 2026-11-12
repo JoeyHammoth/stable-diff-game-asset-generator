@@ -12,9 +12,10 @@ The measured value is printed on failure, because "seamless_tile failed" is usel
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from statistics import median
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 from PIL import Image
 
@@ -122,9 +123,7 @@ def max_unique_colors(image: Image.Image, ctx: GateContext) -> GateResult:
 
 def alpha_required(image: Image.Image, ctx: GateContext) -> GateResult:
     has_alpha = image.mode in ("RGBA", "LA") or "transparency" in image.info
-    return GateResult(
-        "alpha_required", PASS if has_alpha else FAIL, value=image.mode
-    )
+    return GateResult("alpha_required", PASS if has_alpha else FAIL, value=image.mode)
 
 
 def binary_alpha(image: Image.Image, ctx: GateContext) -> GateResult:
@@ -136,9 +135,7 @@ def binary_alpha(image: Image.Image, ctx: GateContext) -> GateResult:
 
 
 def _channel_difference(left: tuple[int, ...], right: tuple[int, ...]) -> float:
-    return (
-        abs(left[0] - right[0]) + abs(left[1] - right[1]) + abs(left[2] - right[2])
-    ) / 3.0
+    return (abs(left[0] - right[0]) + abs(left[1] - right[1]) + abs(left[2] - right[2])) / 3.0
 
 
 def seam_ratio(image: Image.Image) -> float:
@@ -148,7 +145,8 @@ def seam_ratio(image: Image.Image) -> float:
     edges a tile repeats against. Dividing by the median interior difference makes the
     result scale-free: ~1.0 means the seam is indistinguishable from the interior, and a
     discontinuity shows up as a large ratio instead of a subjective "looks wrong".
-    """    source = image.convert("RGB")
+    """
+    source = image.convert("RGB")
     width, height = source.size
     raw = source.tobytes()
 
@@ -156,12 +154,12 @@ def seam_ratio(image: Image.Image) -> float:
         offset = (y * width + x) * 3
         return raw[offset], raw[offset + 1], raw[offset + 2]
 
-    seam_vertical = sum(
-        _channel_difference(pixel(width - 1, y), pixel(0, y)) for y in range(height)
-    ) / height
-    seam_horizontal = sum(
-        _channel_difference(pixel(x, height - 1), pixel(x, 0)) for x in range(width)
-    ) / width
+    seam_vertical = (
+        sum(_channel_difference(pixel(width - 1, y), pixel(0, y)) for y in range(height)) / height
+    )
+    seam_horizontal = (
+        sum(_channel_difference(pixel(x, height - 1), pixel(x, 0)) for x in range(width)) / width
+    )
     seam = max(seam_vertical, seam_horizontal)
 
     horizontal_steps = [
@@ -233,9 +231,7 @@ DEFAULT_GATES: Mapping[AssetKind, tuple[str, ...]] = {
 }
 
 
-def evaluate(
-    gates: Sequence[str], image: Image.Image, ctx: GateContext
-) -> list[GateResult]:
+def evaluate(gates: Sequence[str], image: Image.Image, ctx: GateContext) -> list[GateResult]:
     results: list[GateResult] = []
     for name in gates:
         try:

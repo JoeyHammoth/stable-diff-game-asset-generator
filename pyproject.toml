@@ -41,7 +41,8 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = [".venv"]
+# Doc examples are illustrations, not modules: formatting them is churn, not consistency.
+extend-exclude = [".venv", "docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
