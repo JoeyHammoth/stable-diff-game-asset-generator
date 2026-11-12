@@ -82,7 +82,7 @@ class ComfyUIClient:
 
     # ------------------------------------------------------------------ endpoints
 
-    def submit(self, graph: Mapping[str, Any], *, prompt_id: str, client_id: str) -> dict:
+    def submit(self, graph: Mapping[str, Any], *, prompt_id: str, client_id: str) -> dict[str, Any]:
         body = json.dumps({"prompt": graph, "client_id": client_id, "prompt_id": prompt_id}).encode(
             "utf-8"
         )
@@ -116,9 +116,11 @@ class ComfyUIClient:
             raise BackendError("bad_output", "POST /prompt did not return a JSON object")
         return parsed
 
-    def history(self, prompt_id: str) -> dict:
+    def history(self, prompt_id: str) -> dict[str, Any]:
         parsed = self._json("GET", f"/history/{urllib.parse.quote(prompt_id)}")
-        return parsed if isinstance(parsed, dict) else {}
+        if not isinstance(parsed, dict):
+            return {}
+        return parsed
 
     def view(self, filename: str, subfolder: str = "", type: str = "output") -> bytes:
         query = urllib.parse.urlencode({"filename": filename, "subfolder": subfolder, "type": type})
@@ -131,7 +133,7 @@ class ComfyUIClient:
             raise BackendError("unreachable", f"GET /view returned HTTP {status}")
         return payload
 
-    def upload_image(self, path: Path, name: str | None = None) -> dict:
+    def upload_image(self, path: Path, name: str | None = None) -> dict[str, Any]:
         boundary = f"----sdga{uuid4().hex}"
         filename = name or Path(path).name
         content = Path(path).read_bytes()
@@ -161,14 +163,17 @@ class ComfyUIClient:
             )
         return parsed
 
-    def object_info(self) -> dict:
+    def object_info(self) -> dict[str, Any]:
         parsed = self._json("GET", "/object_info")
         if not isinstance(parsed, dict):
             raise BackendError("bad_output", "/object_info did not return a JSON object")
         return parsed
 
-    def system_stats(self) -> dict:
-        return self._json("GET", "/system_stats")
+    def system_stats(self) -> dict[str, Any]:
+        parsed = self._json("GET", "/system_stats")
+        if not isinstance(parsed, dict):
+            raise BackendError("bad_output", "/system_stats did not return a JSON object")
+        return parsed
 
     def interrupt(self) -> None:
         try:

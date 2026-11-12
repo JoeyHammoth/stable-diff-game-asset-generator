@@ -40,7 +40,10 @@ def _read_run(run_dir: Path) -> dict[str, Any]:
             f"no run.json in {run_dir}",
             remedy="pass --run <run_id>, or run `sdga run` first",
         )
-    return json.loads(path.read_text(encoding="utf-8"))
+    parsed = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(parsed, dict):
+        raise SdgaError(f"{path} is not a JSON object", remedy="re-run the asset")
+    return parsed
 
 
 def _packs_dir(config: Config) -> Path:
@@ -62,7 +65,7 @@ def next_pack_id(config: Config, *, today: str | None = None) -> str:
         sequence += 1
 
 
-def _engine_hints(asset: Mapping[str, Any], checks: Sequence[Mapping[str, Any]]) -> dict:
+def _engine_hints(asset: Mapping[str, Any], checks: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Advisory facts an engine needs, derived from the gates rather than guessed."""
     hints: dict[str, Any] = {}
     files = asset.get("files") or []

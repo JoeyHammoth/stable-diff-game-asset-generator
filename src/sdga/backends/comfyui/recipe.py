@@ -281,17 +281,20 @@ def _names(raw: Any, key: str, display: str) -> tuple[str, ...]:
     return tuple(raw)
 
 
-def _markers(value: Any):
+def _markers(value: Any) -> list[str]:
+    """Every `${...}` expression in a graph, in encounter order."""
+    found: list[str] = []
     if isinstance(value, str):
         match = _MARKER.match(value)
         if match:
-            yield match.group(1)
+            found.append(match.group(1))
     elif isinstance(value, dict):
         for item in value.values():
-            yield from _markers(item)
+            found.extend(_markers(item))
     elif isinstance(value, list):
         for item in value:
-            yield from _markers(item)
+            found.extend(_markers(item))
+    return found
 
 
 def _resolve(value: Any, context: Mapping[str, Any], *, where: str) -> Any:

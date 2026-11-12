@@ -141,7 +141,9 @@ def _keys(table: Mapping[str, Any], allowed: set[str], where: str) -> None:
             )
 
 
-def _table(raw: Mapping[str, Any], key: str, where: str, *, required: bool = True) -> dict:
+def _table(
+    raw: Mapping[str, Any], key: str, where: str, *, required: bool = True
+) -> dict[str, Any]:
     if key not in raw:
         if required:
             raise ConfigError(f"missing required table [{key}]", location=where)

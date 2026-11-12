@@ -88,12 +88,14 @@ class _Lines:
         if node is None:
             return None
         if key is None:
-            return node.start_mark.line + 1
+            node_line: int = node.start_mark.line + 1
+            return node_line
         if not isinstance(node, yaml.MappingNode):
             return None
         for candidate, _ in node.value:
             if isinstance(candidate, yaml.ScalarNode) and candidate.value == str(key):
-                return candidate.start_mark.line + 1
+                key_line: int = candidate.start_mark.line + 1
+                return key_line
         return None
 
 
