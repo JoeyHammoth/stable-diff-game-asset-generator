@@ -54,5 +54,7 @@ def test_canonical_rejects_nan():
 
 
 def test_canonical_serialises_paths_portably(tmp_path):
-    assert canonical_json({"p": tmp_path / "x.png"}).endswith('.png"}}')
-    assert "\\" not in canonical_json({"p": tmp_path / "x.png"})
+    path = tmp_path / "x.png"
+    # Forward slashes regardless of platform: hashes must agree across machines.
+    assert canonical_json({"p": path}) == '{"p":"' + path.as_posix() + '"}'
+    assert "\\" not in canonical_json({"p": path})
