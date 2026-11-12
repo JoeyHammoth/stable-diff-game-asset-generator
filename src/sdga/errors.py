@@ -76,6 +76,12 @@ class SlotResolutionError(SdgaError):
     exit_code = EXIT_SCHEMA
 
 
+class RecipeError(SdgaError):
+    """A recipe file, graph, or declaration is invalid."""
+
+    exit_code = EXIT_SCHEMA
+
+
 class GateFailure(SdgaError):
     """An asset was produced but did not meet its acceptance thresholds."""
 

@@ -125,6 +125,7 @@ class JobReport:
     progress: float | None = None
     artifacts: tuple[ArtifactRef, ...] = ()
     message: str | None = None
+    error: Mapping[str, Any] | None = None
 
 
 @runtime_checkable
