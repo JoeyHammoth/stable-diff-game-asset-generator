@@ -100,14 +100,14 @@ def run(
         Check(
             "config",
             PASS,
-            f"{config.project.name} · grid {style.grid} · {len(style.loras)} lora(s)",
+            f"{config.project.name} | grid {style.grid} | {len(style.loras)} lora(s)",
         )
     )
     checks.append(
         Check(
             "palette",
             PASS,
-            f"{style.palette.path} · {style.palette.colors} colours · "
+            f"{style.palette.path} | {style.palette.colors} colours | "
             f"{_short(style.palette.sha256)}",
         )
     )

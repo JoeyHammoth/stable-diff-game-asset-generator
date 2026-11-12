@@ -5,7 +5,7 @@ from pathlib import Path
 from _project import make_project
 
 from sdga import doctor
-from sdga.backends import FakeBackend
+from sdga.backends import CapabilityGap, FakeBackend
 from sdga.config import load_config
 from sdga.errors import BackendError
 
@@ -106,10 +106,20 @@ def test_unreachable_backend_is_a_failing_check(project: Path):
 def test_declared_gaps_are_reported(project: Path):
     config = load_config(project)
     backend = FakeBackend(
-        gaps=(doctor_gap := None,) if False else ()  # keep type checkers quiet
+        gaps=(
+            CapabilityGap(
+                "node",
+                "PaletteMatch",
+                "no palette matcher installed",
+                "install the node pack, or rely on the postprocess palette_snap op",
+            ),
+        )
     )
     report = doctor.run(config, backend)
-    assert report.ok
+    check = _check(report, "gap:PaletteMatch")
+    assert check.status == "fail"
+    assert "postprocess" in (check.remedy or "")
+    assert not report.ok
 
 
 def test_table_renders_a_header_and_remedy_lines(project: Path):

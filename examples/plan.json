@@ -1,0 +1,141 @@
+{
+  "project": "example",
+  "requests": [
+    {
+      "asset_id": "char/ranger_walk",
+      "backend": "fake",
+      "final_size": [
+        32,
+        32
+      ],
+      "kind": "sprite_sheet",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": null,
+      "params": {
+        "cfg": 7.5,
+        "steps": 28
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background",
+      "recipe": null,
+      "refs": [
+        {
+          "path": "style/skeletons/walk_8frame.png",
+          "role": "pose",
+          "sha256": "sha256:2a5bb712cdce9718a89a1413b08899fa74a34b30996c47842f2897160774a517"
+        },
+        {
+          "path": "concepts/cleaned/ranger_front.png",
+          "role": "style_anchor",
+          "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
+        }
+      ],
+      "request_id": "sha256:36d5ca9160dce50048171bb8b2fe24dbbe00b99e097ec728bf31f6998a24110f",
+      "schema": 1,
+      "seed": 3949935158,
+      "size": [
+        512,
+        64
+      ],
+      "style_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4"
+    },
+    {
+      "asset_id": "terrain/moss_stone",
+      "backend": "fake",
+      "final_size": [
+        32,
+        32
+      ],
+      "kind": "terrain_tile",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": null,
+      "params": {
+        "cfg": 7.0,
+        "denoise": 1.0,
+        "sampler": "euler_ancestral",
+        "scheduler": "karras",
+        "steps": 25
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, seamless tileable mossy cobblestone floor, top-down 2d game tile, dark grey and green tones, flat, no gradients",
+      "recipe": null,
+      "refs": [
+        {
+          "path": "concepts/cleaned/dungeon_floor.png",
+          "role": "style_anchor",
+          "sha256": "sha256:ac6efef25b6b67d8899d168ee957ec52a72b77631d176ef5ccda95eb8fc11364"
+        }
+      ],
+      "request_id": "sha256:f2a3342ccfbc2e969c25d33dbfa9e1d8f50ddaa0240812bb5251676bb42c04f1",
+      "schema": 1,
+      "seed": 1773396371,
+      "size": [
+        512,
+        512
+      ],
+      "style_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4"
+    },
+    {
+      "asset_id": "terrain/moss_stone_normal",
+      "backend": "fake",
+      "final_size": [
+        32,
+        32
+      ],
+      "kind": "normal_map",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": null,
+      "params": {
+        "cfg": 7.0,
+        "flip_g": false,
+        "height_strength": 2.0,
+        "sampler": "euler_ancestral",
+        "scheduler": "karras",
+        "steps": 25
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro",
+      "recipe": null,
+      "refs": [],
+      "request_id": "sha256:663b82912218823edfdae92f13cd1d6c7e9c0c10d5d9fb6272fa333477a7175b",
+      "schema": 1,
+      "seed": 2534056971,
+      "size": [
+        512,
+        512
+      ],
+      "style_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4"
+    },
+    {
+      "asset_id": "ui/button_normal",
+      "backend": "fake",
+      "final_size": [
+        64,
+        16
+      ],
+      "kind": "ui_element",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": null,
+      "params": {},
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, rounded stone button, empty center, no text, 9-slice friendly frame",
+      "recipe": null,
+      "refs": [
+        {
+          "path": "style/wireframes/button_64x16.png",
+          "role": "wireframe",
+          "sha256": "sha256:6e9a0f2de7cb0a149795713cc8fbba8fca95ac0e46d126e6eb55bd6be66006b3"
+        }
+      ],
+      "request_id": "sha256:3a9cca5704832a5955fce1bf808d9b245d38123c7db5458fa93c3f1d3254ba0f",
+      "schema": 1,
+      "seed": 3227040654,
+      "size": [
+        512,
+        512
+      ],
+      "style_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4"
+    }
+  ],
+  "schema": 1,
+  "style": {
+    "contract_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4",
+    "name": "example"
+  }
+}

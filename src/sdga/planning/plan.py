@@ -132,6 +132,8 @@ def resolve_refs(config: Config, spec: AssetSpec) -> tuple[ResolvedRef, ...]:
 
 
 def _check_quantum(spec: AssetSpec, style: StyleContract) -> None:
+    if spec.kind in AUDIO_KINDS:
+        return  # audio has no pixel grid; duration and beat alignment are its quanta
     quantum = grid_quantum(spec.kind, style.grid)
     for axis, dimension in zip(("width", "height"), spec.size):
         if dimension % quantum:
