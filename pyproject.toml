@@ -14,7 +14,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.9",
+  "mypy>=1.13",
+  "types-PyYAML",
+]
 
 [project.scripts]
 sdga = "sdga.cli:main"
@@ -36,6 +41,22 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = [".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+files = ["src/sdga"]
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+# Domain types are checked strictly: they are the contract every other module leans on,
+# so a missing annotation there is a design bug rather than a style opinion.
+[[tool.mypy.overrides]]
+module = ["sdga.model", "sdga.model.*"]
+strict = true

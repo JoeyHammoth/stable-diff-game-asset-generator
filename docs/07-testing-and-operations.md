@@ -111,13 +111,20 @@ asserts `doctor` names the missing node **and** the recipe that needs it.
 ## 5. CI
 
 ```
-pytest -m "not slow and not gpu"   # every push; no network, no GPU, no torch
-ruff check + ruff format --check
-mypy src/sdga/model            # strict, types only
-mypy src/sdga                  # standard
-sdga plan --dry-run examples/ && git diff --exit-code examples/plan.json
-sdga run examples/ --backend fake && sdga validate packs/<newest> --json
+python -m pip install -e ".[dev]"
+ruff check .                       # lint, src and tests
+ruff format --check .              # formatting is checked, not just linted
+mypy                               # src/sdga; sdga.model is strict (see pyproject)
+pytest -m "not slow and not gpu"   # no network, no GPU, no torch
+sdga plan    --project examples && git diff --exit-code examples/plan.json
+sdga run     --project examples --asset terrain/moss_stone
+sdga publish --project examples --allow-unreviewed
+sdga validate --project examples "$(ls -d examples/packs/* | head -1)"
 ```
+
+`.github/workflows/ci.yml` runs exactly this list. The example project selects the fake
+backend through `[backend] kind = "fake"` in its `sdga.toml`; there is deliberately no
+`--backend` flag, because the backend is a project property rather than a per-command one.
 
 Two properties make CI meaningful:
 

@@ -226,12 +226,12 @@ def read_gpl(path: Path, where: str) -> tuple[tuple[int, int, int], ...]:
         match = _GPL_LINE.match(line)
         if not match:
             continue
-        rgb = tuple(int(part) for part in match.groups())
+        rgb = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
         if any(channel > 255 for channel in rgb):
             raise ConfigError(
                 f"colour component out of range in palette: {line.strip()!r}", location=where
             )
-        colors.append(rgb)  # type: ignore[arg-type]
+        colors.append(rgb)
     if not colors:
         raise ConfigError(
             f"no colours found in {path.name}",

@@ -12,7 +12,7 @@ The measured value is printed on failure, because "seamless_tile failed" is usel
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from statistics import median
 from typing import Any, Callable, Mapping, Sequence
 
@@ -33,12 +33,8 @@ class GateContext:
     size: tuple[int, int]
     quantum: int = 1
     palette: tuple[RGB, ...] = ()
-    thresholds: Mapping[str, Any] = None  # type: ignore[assignment]
+    thresholds: Mapping[str, Any] = field(default_factory=dict)
     kind: AssetKind | None = None
-
-    def __post_init__(self) -> None:
-        if self.thresholds is None:
-            object.__setattr__(self, "thresholds", {})
 
     def threshold(self, name: str, default: float) -> float:
         value = self.thresholds.get(name, default)
@@ -69,9 +65,11 @@ Gate = Callable[[Image.Image, GateContext], GateResult]
 
 
 def _visible_pixels(image: Image.Image) -> list[tuple[int, int, int]]:
-    source = image.convert("RGBA")
+    raw = image.convert("RGBA").tobytes()
     return [
-        (r, g, b) for r, g, b, a in source.getdata() if a > 0
+        (raw[index], raw[index + 1], raw[index + 2])
+        for index in range(0, len(raw), 4)
+        if raw[index + 3] > 0
     ]
 
 
@@ -132,8 +130,8 @@ def alpha_required(image: Image.Image, ctx: GateContext) -> GateResult:
 def binary_alpha(image: Image.Image, ctx: GateContext) -> GateResult:
     if image.mode not in ("RGBA", "LA"):
         return GateResult("binary_alpha", SKIPPED, detail="no alpha channel")
-    alpha = image.convert("RGBA").getchannel("A")
-    partial = sum(1 for value in alpha.getdata() if value not in (0, 255))
+    alpha = image.convert("RGBA").getchannel("A").tobytes()
+    partial = sum(1 for value in alpha if value not in (0, 255))
     return GateResult("binary_alpha", PASS if partial == 0 else FAIL, value=partial)
 
 
@@ -150,27 +148,28 @@ def seam_ratio(image: Image.Image) -> float:
     edges a tile repeats against. Dividing by the median interior difference makes the
     result scale-free: ~1.0 means the seam is indistinguishable from the interior, and a
     discontinuity shows up as a large ratio instead of a subjective "looks wrong".
-    """
-    source = image.convert("RGB")
+    """    source = image.convert("RGB")
     width, height = source.size
-    pixels = source.load()
+    raw = source.tobytes()
+
+    def pixel(x: int, y: int) -> tuple[int, int, int]:
+        offset = (y * width + x) * 3
+        return raw[offset], raw[offset + 1], raw[offset + 2]
 
     seam_vertical = sum(
-        _channel_difference(pixels[width - 1, y], pixels[0, y]) for y in range(height)
+        _channel_difference(pixel(width - 1, y), pixel(0, y)) for y in range(height)
     ) / height
     seam_horizontal = sum(
-        _channel_difference(pixels[x, height - 1], pixels[x, 0]) for x in range(width)
+        _channel_difference(pixel(x, height - 1), pixel(x, 0)) for x in range(width)
     ) / width
     seam = max(seam_vertical, seam_horizontal)
 
     horizontal_steps = [
-        sum(_channel_difference(pixels[x, y], pixels[x + 1, y]) for y in range(height))
-        / height
+        sum(_channel_difference(pixel(x, y), pixel(x + 1, y)) for y in range(height)) / height
         for x in range(width - 1)
     ]
     vertical_steps = [
-        sum(_channel_difference(pixels[x, y], pixels[x, y + 1]) for x in range(width))
-        / width
+        sum(_channel_difference(pixel(x, y), pixel(x, y + 1)) for x in range(width)) / width
         for y in range(height - 1)
     ]
     interior = median(horizontal_steps + vertical_steps)

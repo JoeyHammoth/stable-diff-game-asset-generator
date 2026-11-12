@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    # No GPU, no ComfyUI, no torch. That is what makes "sdga never imports ComfyUI" a
+    # checked property rather than a claim: an accidental import fails here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format
+        run: ruff format --check .
+
+      - name: Typecheck
+        run: mypy
+
+      - name: Tests
+        run: pytest -m "not slow and not gpu"
+
+      - name: plan.json is byte-stable
+        run: |
+          sdga plan --project examples
+          git diff --exit-code examples/plan.json
+
+      - name: Generate and gate one asset
+        run: sdga run --project examples --asset terrain/moss_stone
+
+      - name: Publish
+        run: sdga publish --project examples --allow-unreviewed
+
+      - name: Validate the pack with no backend
+        run: sdga validate --project examples "$(ls -d examples/packs/* | head -1)"

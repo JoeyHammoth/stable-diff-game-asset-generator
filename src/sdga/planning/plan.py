@@ -41,12 +41,18 @@ class RecipeLike(Protocol):
     """What planning needs from a recipe.
 
     Structural, so planning never imports the ComfyUI package: a recipe is data and the
-    binder is injected.
+    binder is injected. Every member is a read-only property because a recipe is a frozen
+    dataclass, and a writable attribute in the Protocol could not be satisfied by one.
     """
 
-    id: str
-    version: int
-    output_node: str
+    @property
+    def id(self) -> str: ...
+
+    @property
+    def version(self) -> int: ...
+
+    @property
+    def output_node(self) -> str: ...
 
     @property
     def key(self) -> str: ...
@@ -156,7 +162,7 @@ def _check_quantum(spec: AssetSpec, style: StyleContract) -> None:
     if spec.kind in AUDIO_KINDS:
         return  # audio has no pixel grid; duration and beat alignment are its quanta
     quantum = grid_quantum(spec.kind, style.grid)
-    for axis, dimension in zip(("width", "height"), spec.size):
+    for axis, dimension in zip(("width", "height"), spec.size, strict=True):
         if dimension % quantum:
             raise SpecError(
                 f"{spec.id}: {axis} {dimension} is not a multiple of {quantum}",

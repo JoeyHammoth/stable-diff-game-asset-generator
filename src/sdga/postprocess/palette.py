@@ -31,14 +31,14 @@ def _cbrt(value: float) -> float:
 def rgb_to_oklab(rgb: RGB) -> tuple[float, float, float]:
     """sRGB 0-255 to OKLab (Björn Ottosson's matrices)."""
     r, g, b = (_srgb_to_linear(channel / 255.0) for channel in rgb)
-    l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
-    m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
-    s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
-    l_, m_, s_ = _cbrt(l), _cbrt(m), _cbrt(s)
+    lms_l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
+    lms_m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
+    lms_s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
+    cube_l, cube_m, cube_s = _cbrt(lms_l), _cbrt(lms_m), _cbrt(lms_s)
     return (
-        0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-        1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-        0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+        0.2104542553 * cube_l + 0.7936177850 * cube_m - 0.0040720468 * cube_s,
+        1.9779984951 * cube_l - 2.4285922050 * cube_m + 0.4505937099 * cube_s,
+        0.0259040371 * cube_l + 0.7827717662 * cube_m - 0.8086757660 * cube_s,
     )
 
 
@@ -77,9 +77,13 @@ def snap_to_palette(image: Image.Image, palette: Sequence[RGB]) -> Image.Image:
     source = image.convert("RGBA")
     palette_lab = [rgb_to_oklab(colour) for colour in palette]
     cache: dict[RGB, RGB] = {}
+    # Iterate the raw buffer rather than getdata(): it is typed, faster, and does not
+    # depend on Pillow's serialisation API.
+    raw = source.tobytes()
     output: list[tuple[int, int, int, int]] = []
 
-    for r, g, b, a in source.getdata():
+    for offset in range(0, len(raw), 4):
+        r, g, b, a = raw[offset], raw[offset + 1], raw[offset + 2], raw[offset + 3]
         if a == 0:
             output.append((0, 0, 0, 0))
             continue

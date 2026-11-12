@@ -332,8 +332,10 @@ def _layout(
             )
     cols = value.get("cols")
     rows = value.get("rows")
-    if any(isinstance(v, bool) or not isinstance(v, int) or v < 1 for v in (cols, rows)):
-        raise SpecError("layout.cols and layout.rows must be integers >= 1", location=where)
+    if isinstance(cols, bool) or not isinstance(cols, int) or cols < 1:
+        raise SpecError("layout.cols must be an integer >= 1", location=where)
+    if isinstance(rows, bool) or not isinstance(rows, int) or rows < 1:
+        raise SpecError("layout.rows must be an integer >= 1", location=where)
     if frames is None:
         raise SpecError(f"layout is only valid for animated kinds, not {kind.value!r}",
                         location=where)

@@ -8,7 +8,7 @@ a GPU.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Mapping
 
 from ..canonical import fold32, hash_obj
@@ -16,7 +16,7 @@ from ..canonical import fold32, hash_obj
 SCHEMA = 1
 
 
-class AssetKind(str, Enum):
+class AssetKind(StrEnum):
     """The closed set of kinds. A kind selects recipe, postprocess chain, gates and hints."""
 
     CONCEPT = "concept"
@@ -37,7 +37,7 @@ class AssetKind(str, Enum):
             raise ValueError(f"unknown asset kind {raw!r}; known kinds: {known}") from None
 
 
-class SeedPolicy(str, Enum):
+class SeedPolicy(StrEnum):
     FIXED = "fixed"
     DERIVED = "derived"
     RANDOM = "random"
@@ -51,7 +51,7 @@ class SeedPolicy(str, Enum):
             raise ValueError(f"unknown seed policy {raw!r}; known policies: {known}") from None
 
 
-class ReferenceRole(str, Enum):
+class ReferenceRole(StrEnum):
     """Roles, not filenames: a recipe binds a reference by role, so specs never name a node."""
 
     STYLE_ANCHOR = "style_anchor"

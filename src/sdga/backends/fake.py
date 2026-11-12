@@ -152,7 +152,7 @@ def _render(request: GenerationRequest) -> Image.Image:
     tones = _TONES
     pair = (tones[request.seed % len(tones)], tones[(request.seed + 1) % len(tones)])
     image.putdata(
-        [pair[(x + y) % 2] for y in range(height) for x in range(width)]  # type: ignore[arg-type]
+        [pair[(x + y) % 2] for y in range(height) for x in range(width)]
     )
     return image
 

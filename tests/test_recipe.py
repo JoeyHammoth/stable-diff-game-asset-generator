@@ -10,6 +10,7 @@ from _project import REPO_ROOT, make_project
 from sdga.backends.comfyui.recipe import load_recipe, load_recipes
 from sdga.config import load_config
 from sdga.errors import RecipeError, SlotResolutionError
+from sdga.model import AssetKind
 
 RECIPES = REPO_ROOT / "recipes"
 TERRAIN = RECIPES / "terrain_tile.yaml"
@@ -182,7 +183,8 @@ def test_the_registry_exposes_versions_and_requirements(project: Path):
     config = load_config(project)
     registry = load_recipes(config)
     assert registry.versions == {"terrain_tile": "3"}
-    assert registry.for_kind(load_recipe(TERRAIN).id and config.style and __import__("sdga").model.AssetKind.TERRAIN_TILE) is not None
+    assert registry.for_kind(AssetKind.TERRAIN_TILE) is not None
+    assert registry.for_kind(AssetKind.SPRITE_SHEET) is None
 
     requirement = registry.requirements(config.style)[0]
     assert requirement.recipe == "terrain_tile@3"

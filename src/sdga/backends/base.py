@@ -8,7 +8,7 @@ job is deterministic, offline output.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Mapping, Protocol, runtime_checkable
 
@@ -16,7 +16,7 @@ from ..canonical import hash_obj
 from ..model import GenerationRequest
 
 
-class PollState(str, Enum):
+class PollState(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     SUCCEEDED = "succeeded"
