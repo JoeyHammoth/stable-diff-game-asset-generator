@@ -48,7 +48,8 @@ class SdgaError(Exception):
 
     def render(self) -> str:
         head = f"{self.location}: {self.message}" if self.location else self.message
-        return f"{head}\n  → {self.remedy}" if self.remedy else head
+        # ASCII only: this string is printed to consoles whose encoding we do not control.
+        return f"{head}\n  -> {self.remedy}" if self.remedy else head
 
 
 class UsageError(SdgaError):
