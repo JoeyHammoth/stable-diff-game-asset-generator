@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 from _project import make_project
-from replay import ReplayServer, load
+from replay import ReplayServer, checkerboard_png, load
 
 from sdga.backends.base import PollState
 from sdga.backends.comfyui import (
@@ -129,6 +129,28 @@ def test_view_requests_the_declared_file():
         assert payload == server.view_bytes
         assert server.view_queries[0]["filename"] == ["final_00001_.png"]
         assert server.view_queries[0]["subfolder"] == ["sdga"]
+
+
+def test_upload_image_sends_the_file_as_multipart(tmp_path: Path):
+    image = tmp_path / "floor.png"
+    image.write_bytes(checkerboard_png((8, 8)))
+
+    with ReplayServer() as server:
+        response = ComfyUIClient(server.url).upload_image(image)
+
+    assert response == {}
+    path, body = server.post_requests[0]
+    assert path == "/upload/image"
+    assert b'name="image"; filename="floor.png"' in body
+    assert b"\x89PNG" in body  # the file bytes really travelled, not just a filename
+
+
+def test_cancel_posts_an_interrupt(project: Path):
+    config, request = _project_and_request(project)
+    with ReplayServer() as server:
+        backend = _backend(config, server.url)
+        backend.cancel(backend.submit(request))
+        assert any(path == "/interrupt" for path, _ in server.post_requests)
 
 
 def test_a_connection_failure_is_unreachable():

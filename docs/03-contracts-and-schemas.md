@@ -17,6 +17,7 @@ schema = 1
 name = "mygame"
 root = "."
 asset_globs = ["assets/**/*.yaml"]
+recipes_dir = "recipes"             # this project's pinned recipe set
 runs_dir = "runs"
 packs_dir = "packs"
 cache_dir = ".sdga/cache"

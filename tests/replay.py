@@ -55,6 +55,7 @@ class ReplayServer:
             "prompt_400_node_errors.json"
         )
         self.prompt_requests: list[dict[str, Any]] = []
+        self.post_requests: list[tuple[str, bytes]] = []
         self.view_queries: list[dict[str, list[str]]] = []
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -112,6 +113,7 @@ class ReplayServer:
             def do_POST(self) -> None:  # noqa: N802 - http.server API
                 length = int(self.headers.get("Content-Length") or 0)
                 raw = self.rfile.read(length)
+                replay.post_requests.append((self.path, raw))
                 if self.path == "/prompt":
                     try:
                         payload = json.loads(raw.decode("utf-8") or "{}")
