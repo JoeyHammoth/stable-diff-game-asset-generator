@@ -20,6 +20,7 @@ from typing import Any, Mapping, Sequence
 from .canonical import sha256_tagged
 from .errors import ConfigError
 from .model import LoraRef, PaletteRef, SeedPolicy, StyleContract
+from .paths import relative_path
 
 CONFIG_NAME = "sdga.toml"
 
@@ -187,20 +188,7 @@ def _bool(table: Mapping[str, Any], key: str, where: str, *, default: bool = Fal
 
 def _relative(value: str, where: str, key: str) -> str:
     """Project-relative only. Rule 3: no machine-specific paths, ever."""
-    posix = value.replace("\\", "/")
-    if posix.startswith("/") or re.match(r"^[A-Za-z]:", posix):
-        raise ConfigError(
-            f"{key} must be relative to the project root, not absolute: {value!r}",
-            location=where,
-            remedy="paths resolve against [project] root; move the file inside the project",
-        )
-    if ".." in posix.split("/"):
-        raise ConfigError(
-            f"{key} must not escape the project root: {value!r}",
-            location=where,
-            remedy="keep referenced files inside the project directory",
-        )
-    return posix
+    return relative_path(value, where, key)
 
 
 def _string_list(table: Mapping[str, Any], key: str, where: str) -> tuple[str, ...]:
