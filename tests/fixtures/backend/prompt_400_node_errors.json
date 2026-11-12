@@ -1,0 +1,25 @@
+{
+  "error": {
+    "type": "prompt_outputs_failed_validation",
+    "message": "Prompt outputs failed validation",
+    "details": "",
+    "extra_info": {}
+  },
+  "node_errors": {
+    "6": {
+      "errors": [
+        {
+          "type": "value_not_in_list",
+          "message": "Value not in list",
+          "details": "sampler_name: 'nope' not in ['euler', 'euler_ancestral', 'dpmpp_2m']",
+          "extra_info": {
+            "input_name": "sampler_name",
+            "received_value": "nope"
+          }
+        }
+      ],
+      "dependent_outputs": ["12"],
+      "class_type": "KSampler"
+    }
+  }
+}

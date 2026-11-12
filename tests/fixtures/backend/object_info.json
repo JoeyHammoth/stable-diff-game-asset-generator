@@ -1,0 +1,88 @@
+{
+  "CheckpointLoaderSimple": {
+    "input": {
+      "required": {
+        "ckpt_name": [["sd_v1-5.safetensors", "sdxl_base.safetensors"], {}]
+      }
+    },
+    "output": ["MODEL", "CLIP", "VAE"],
+    "output_name": ["MODEL", "CLIP", "VAE"],
+    "output_node": false
+  },
+  "LoraLoader": {
+    "input": {
+      "required": {
+        "model": ["MODEL", {}],
+        "clip": ["CLIP", {}],
+        "lora_name": [["example_style.safetensors"], {}],
+        "strength_model": ["FLOAT", {"default": 1.0, "min": -100.0, "max": 100.0}],
+        "strength_clip": ["FLOAT", {"default": 1.0, "min": -100.0, "max": 100.0}]
+      }
+    },
+    "output": ["MODEL", "CLIP"],
+    "output_node": false
+  },
+  "CLIPTextEncode": {
+    "input": {
+      "required": {
+        "text": ["STRING", {"multiline": true}],
+        "clip": ["CLIP", {}]
+      }
+    },
+    "output": ["CONDITIONING"],
+    "output_node": false
+  },
+  "EmptyLatentImage": {
+    "input": {
+      "required": {
+        "width": ["INT", {"default": 512, "min": 16, "max": 16384, "step": 8}],
+        "height": ["INT", {"default": 512, "min": 16, "max": 16384, "step": 8}],
+        "batch_size": ["INT", {"default": 1, "min": 1, "max": 4096}]
+      }
+    },
+    "output": ["LATENT"],
+    "output_node": false
+  },
+  "KSampler": {
+    "input": {
+      "required": {
+        "model": ["MODEL", {}],
+        "seed": ["INT", {"default": 0, "min": 0, "max": 18446744073709551615}],
+        "steps": ["INT", {"default": 20, "min": 1, "max": 10000}],
+        "cfg": ["FLOAT", {"default": 8.0, "min": 0.0, "max": 100.0}],
+        "sampler_name": [["euler", "euler_ancestral", "dpmpp_2m"], {}],
+        "scheduler": [["normal", "karras", "exponential"], {}],
+        "positive": ["CONDITIONING", {}],
+        "negative": ["CONDITIONING", {}],
+        "latent_image": ["LATENT", {}],
+        "denoise": ["FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0}]
+      }
+    },
+    "output": ["LATENT"],
+    "output_node": false
+  },
+  "VAEDecode": {
+    "input": {
+      "required": {
+        "samples": ["LATENT", {}],
+        "vae": ["VAE", {}]
+      }
+    },
+    "output": ["IMAGE"],
+    "output_node": false
+  },
+  "SaveImage": {
+    "input": {
+      "required": {
+        "images": ["IMAGE", {}],
+        "filename_prefix": ["STRING", {"default": "ComfyUI"}]
+      },
+      "hidden": {
+        "prompt": "PROMPT",
+        "extra_pnginfo": "EXTRA_PNGINFO"
+      }
+    },
+    "output": [],
+    "output_node": true
+  }
+}

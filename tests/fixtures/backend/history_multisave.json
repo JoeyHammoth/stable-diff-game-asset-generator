@@ -1,0 +1,36 @@
+{
+  "__PROMPT_ID__": {
+    "prompt": [
+      1,
+      "__PROMPT_ID__",
+      {},
+      {},
+      []
+    ],
+    "outputs": {
+      "8": {
+        "images": [
+          {
+            "filename": "preview_00001_.png",
+            "subfolder": "",
+            "type": "temp"
+          }
+        ]
+      },
+      "12": {
+        "images": [
+          {
+            "filename": "final_00001_.png",
+            "subfolder": "sdga",
+            "type": "output"
+          }
+        ]
+      }
+    },
+    "status": {
+      "status_str": "success",
+      "completed": true,
+      "messages": []
+    }
+  }
+}

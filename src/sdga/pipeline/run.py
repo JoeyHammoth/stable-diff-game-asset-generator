@@ -14,12 +14,12 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Sequence
 
 from PIL import Image
 
 from .. import __version__
-from ..backends.base import ArtifactRef, GenerationBackend, JobHandle, JobReport, PollState
+from ..backends.base import GenerationBackend, JobHandle, JobReport, PollState
 from ..backends.comfyui.recipe import Recipe, RecipeRegistry, load_recipes
 from ..canonical import hash_file, pretty_json
 from ..config import Config, read_gpl
@@ -209,7 +209,7 @@ def execute_job(
             "kind": exc.kind,
             "detail": exc.detail,
             "payload": exc.payload,
-    }
+        }
         record["status"] = "failed"
     except OSError as exc:
         record["error"] = {"kind": "bad_output", "detail": f"unreadable artifact: {exc}"}

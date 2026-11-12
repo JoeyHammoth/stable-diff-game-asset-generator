@@ -1,0 +1,31 @@
+{
+  "__PROMPT_ID__": {
+    "prompt": [
+      1,
+      "__PROMPT_ID__",
+      {},
+      {},
+      []
+    ],
+    "outputs": {
+      "12": {
+        "images": [
+          {
+            "filename": "sdga_terrain__moss_stone_00001_.png",
+            "subfolder": "",
+            "type": "output"
+          }
+        ]
+      }
+    },
+    "status": {
+      "status_str": "success",
+      "completed": true,
+      "messages": [
+        ["execution_start", { "prompt_id": "__PROMPT_ID__" }],
+        ["execution_cached", { "nodes": [], "prompt_id": "__PROMPT_ID__" }],
+        ["execution_success", { "prompt_id": "__PROMPT_ID__", "timestamp": 1763000000000 }]
+      ]
+    }
+  }
+}

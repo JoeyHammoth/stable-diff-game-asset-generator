@@ -10,6 +10,8 @@ from pathlib import Path
 
 from PIL import Image
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 PALETTE_COLORS: tuple[tuple[int, int, int], ...] = (
     (31, 34, 41),
     (45, 52, 60),
@@ -136,15 +138,44 @@ def write_png(path: Path, size: tuple[int, int], colors: tuple[tuple[int, ...], 
     image.save(path, format="PNG")
 
 
+def install_recipes(root: Path) -> None:
+    """Copy the repository's real recipes in, so tests exercise the shipped data."""
+    source = REPO_ROOT / "recipes"
+    if not source.is_dir():
+        return
+    for path in sorted(source.glob("*.yaml")):
+        graph = path.parent / path.stem / "graph"
+        target = root / "recipes" / path.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+        referenced = path.parent / _graph_name(path)
+        if referenced.is_file():
+            (root / "recipes" / referenced.name).write_text(
+                referenced.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+    del graph
+
+
+def _graph_name(recipe_path: Path) -> str:
+    for line in recipe_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("graph:"):
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
 def make_project(
     root: Path,
     *,
     toml: str | None = None,
     assets: dict[str, str] | None = None,
+    with_recipes: bool = True,
 ) -> Path:
     root = Path(root)
     (root / "palettes").mkdir(parents=True, exist_ok=True)
     (root / "palettes" / "test.gpl").write_text(PALETTE_GPL, encoding="utf-8")
+
+    if with_recipes:
+        install_recipes(root)
 
     for relative, (size, colors) in REFS.items():
         write_png(root / relative, size, colors)

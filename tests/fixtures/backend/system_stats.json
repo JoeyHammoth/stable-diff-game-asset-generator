@@ -1,0 +1,23 @@
+{
+  "system": {
+    "os": "nt",
+    "ram_total": 68612558848,
+    "ram_free": 34231286784,
+    "comfyui_version": "0.23.0",
+    "python_version": "3.12.10 (main, Apr 2025)",
+    "pytorch_version": "2.6.0+cu124",
+    "embedded_python": false,
+    "argv": ["main.py", "--listen", "127.0.0.1"]
+  },
+  "devices": [
+    {
+      "name": "NVIDIA GeForce RTX 4070 Ti",
+      "type": "cuda",
+      "index": 0,
+      "vram_total": 12803203072,
+      "vram_free": 11811160064,
+      "torch_vram_total": 0,
+      "torch_vram_free": 0
+    }
+  ]
+}

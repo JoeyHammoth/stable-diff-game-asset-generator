@@ -10,7 +10,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
 from . import __version__, doctor
 from .backends import FakeBackend, GenerationBackend
@@ -25,13 +25,7 @@ from .errors import (
     SdgaError,
 )
 from .pack import publish
-from .pipeline import (
-    execute_run,
-    palette_for,
-    run_dir_for,
-    verify_pack,
-    verify_run,
-)
+from .pipeline import execute_run, run_dir_for, verify_pack, verify_run
 from .planning import build_plan
 from .specs import load_specs
 
