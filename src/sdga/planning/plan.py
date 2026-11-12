@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import re
 import secrets
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Protocol
 
-from ..canonical import hash_obj, hash_file, pretty_json
+from ..canonical import hash_file, hash_obj, pretty_json
 from ..config import Config
 from ..errors import SpecError
 from ..model import (
@@ -174,9 +175,7 @@ def _check_quantum(spec: AssetSpec, style: StyleContract) -> None:
             )
 
 
-def bind_context(
-    config: Config, spec: AssetSpec, request: GenerationRequest
-) -> dict[str, Any]:
+def bind_context(config: Config, spec: AssetSpec, request: GenerationRequest) -> dict[str, Any]:
     """The flat namespace a recipe's `${slots}` resolve against (docs/03 §3, binder rule 2)."""
     return {
         "positive": request.positive,

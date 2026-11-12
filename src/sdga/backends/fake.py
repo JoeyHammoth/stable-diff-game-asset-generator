@@ -8,9 +8,9 @@ implementation of the same protocol, which is the point.
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
 from uuid import NAMESPACE_URL, uuid5
 
 from PIL import Image
@@ -131,9 +131,7 @@ class FakeBackend:
     def fetch(self, artifact: ArtifactRef, dest: Path) -> Path:
         request = self._requests.get(artifact.filename)
         if request is None:
-            raise BackendError(
-                "bad_output", f"unknown artifact: {artifact.filename}"
-            )
+            raise BackendError("bad_output", f"unknown artifact: {artifact.filename}")
         target = Path(dest)
         target.parent.mkdir(parents=True, exist_ok=True)
         _render(request).save(target, format="PNG", optimize=False)
@@ -151,9 +149,7 @@ def _render(request: GenerationRequest) -> Image.Image:
     image = Image.new("RGB", (width, height))
     tones = _TONES
     pair = (tones[request.seed % len(tones)], tones[(request.seed + 1) % len(tones)])
-    image.putdata(
-        [pair[(x + y) % 2] for y in range(height) for x in range(width)]
-    )
+    image.putdata([pair[(x + y) % 2] for y in range(height) for x in range(width)])
     return image
 
 

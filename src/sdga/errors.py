@@ -9,7 +9,8 @@ a fifth.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 EXIT_OK = 0
 EXIT_FAILURE = 1

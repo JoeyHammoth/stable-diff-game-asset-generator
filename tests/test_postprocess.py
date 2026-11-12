@@ -49,7 +49,9 @@ def test_palette_snap_emits_only_palette_colours():
 
 
 def test_palette_snap_is_idempotent():
-    source = _image((4, 1), [(10, 10, 10, 255), (240, 10, 10, 255), (5, 200, 5, 255), (255, 255, 255, 255)])
+    source = _image(
+        (4, 1), [(10, 10, 10, 255), (240, 10, 10, 255), (5, 200, 5, 255), (255, 255, 255, 255)]
+    )
     once = snap_to_palette(source, PALETTE)
     twice = snap_to_palette(once, PALETTE)
     assert list(once.getdata()) == list(twice.getdata())
@@ -67,7 +69,9 @@ def test_palette_snap_leaves_transparent_pixels_colourless():
 
 
 def test_alpha_hard_thresholds_at_128():
-    out = alpha_hard(_image((3, 1), [(0, 0, 0, 127), (0, 0, 0, 128), (0, 0, 0, 200)]), OpContext(size=(3, 1)))
+    out = alpha_hard(
+        _image((3, 1), [(0, 0, 0, 127), (0, 0, 0, 128), (0, 0, 0, 200)]), OpContext(size=(3, 1))
+    )
     assert [pixel[3] for pixel in out.getdata()] == [0, 255, 255]
 
 
@@ -99,9 +103,7 @@ def test_chain_order_is_observable():
     averaging happens first, so the snap has the final word on colour.
     """
     image = Image.new("RGB", (4, 4))
-    image.putdata([
-        (0, 0, 0) if x < 2 else (255, 255, 255) for y in range(4) for x in range(4)
-    ])
+    image.putdata([(0, 0, 0) if x < 2 else (255, 255, 255) for y in range(4) for x in range(4)])
     context = OpContext(size=(1, 1), palette=((0, 0, 0), (255, 255, 255)), grid=1)
 
     snapped_last = apply_chain(image, ["downscale_box", "palette_snap"], context)

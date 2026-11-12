@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from _project import make_project
 from replay import ReplayServer, checkerboard_png, load
 
 from sdga.backends.base import PollState
@@ -99,7 +98,9 @@ def test_a_missing_output_node_is_bad_output(project: Path):
     config, request = _project_and_request(project)
     history = {
         "__PROMPT_ID__": {
-            "outputs": {"8": {"images": [{"filename": "wrong.png", "subfolder": "", "type": "temp"}]}},
+            "outputs": {
+                "8": {"images": [{"filename": "wrong.png", "subfolder": "", "type": "temp"}]}
+            },
             "status": {"status_str": "success", "completed": True},
         }
     }
@@ -174,7 +175,9 @@ def test_binary_frames_do_not_break_progress_tracking():
 
 
 def test_progress_and_status_events_are_not_terminal():
-    assert parse_event(json.dumps({"type": "progress", "data": {"value": 3, "max": 25}}), "p") is None
+    assert (
+        parse_event(json.dumps({"type": "progress", "data": {"value": 3, "max": 25}}), "p") is None
+    )
     assert parse_event(json.dumps({"type": "status", "data": {"status": {}}}), "p") is None
     assert parse_event("not json at all", "p") is None
 
@@ -202,7 +205,9 @@ def test_an_execution_error_carries_the_node_and_message():
 
 def test_events_for_another_prompt_are_ignored():
     assert (
-        parse_event(json.dumps({"type": "executing", "data": {"node": None, "prompt_id": "other"}}), "p")
+        parse_event(
+            json.dumps({"type": "executing", "data": {"node": None, "prompt_id": "other"}}), "p"
+        )
         is None
     )
 

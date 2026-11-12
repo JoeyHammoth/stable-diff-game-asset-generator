@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from sdga.backends import FakeBackend, GenerationBackend
 

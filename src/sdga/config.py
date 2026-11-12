@@ -13,9 +13,10 @@ from __future__ import annotations
 import difflib
 import re
 import tomllib
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from .canonical import sha256_tagged
 from .errors import ConfigError
@@ -151,8 +152,14 @@ def _table(raw: Mapping[str, Any], key: str, where: str, *, required: bool = Tru
     return value
 
 
-def _str(table: Mapping[str, Any], key: str, where: str, *, default: str | None = None,
-         required: bool = False) -> str:
+def _str(
+    table: Mapping[str, Any],
+    key: str,
+    where: str,
+    *,
+    default: str | None = None,
+    required: bool = False,
+) -> str:
     if key not in table:
         if required:
             raise ConfigError(f"missing required key {key!r}", location=where)
@@ -163,8 +170,15 @@ def _str(table: Mapping[str, Any], key: str, where: str, *, default: str | None 
     return value.strip()
 
 
-def _int(table: Mapping[str, Any], key: str, where: str, *, default: int | None = None,
-         minimum: int | None = None, required: bool = False) -> int:
+def _int(
+    table: Mapping[str, Any],
+    key: str,
+    where: str,
+    *,
+    default: int | None = None,
+    minimum: int | None = None,
+    required: bool = False,
+) -> int:
     if key not in table:
         if required:
             raise ConfigError(f"missing required key {key!r}", location=where)
@@ -277,8 +291,9 @@ def load_config(project: str | Path) -> Config:
     project_table = _table(raw, "project", where)
     _keys(project_table, _PROJECT_KEYS, f"{where} [project]")
     name = _str(project_table, "name", f"{where} [project]", required=True)
-    root_rel = _relative(_str(project_table, "root", f"{where} [project]", default="."),
-                         f"{where} [project]", "root")
+    root_rel = _relative(
+        _str(project_table, "root", f"{where} [project]", default="."), f"{where} [project]", "root"
+    )
     root = (path.parent / root_rel).resolve()
 
     globs = _string_list(project_table, "asset_globs", f"{where} [project]") or (
@@ -291,22 +306,27 @@ def load_config(project: str | Path) -> Config:
         name=name,
         root=root,
         asset_globs=tuple(globs),
-        recipes_dir=_relative(_str(project_table, "recipes_dir", where, default="recipes"),
-                              where, "recipes_dir"),
-        runs_dir=_relative(_str(project_table, "runs_dir", where, default="runs"),
-                           where, "runs_dir"),
-        packs_dir=_relative(_str(project_table, "packs_dir", where, default="packs"),
-                            where, "packs_dir"),
-        cache_dir=_relative(_str(project_table, "cache_dir", where, default=".sdga/cache"),
-                            where, "cache_dir"),
+        recipes_dir=_relative(
+            _str(project_table, "recipes_dir", where, default="recipes"), where, "recipes_dir"
+        ),
+        runs_dir=_relative(
+            _str(project_table, "runs_dir", where, default="runs"), where, "runs_dir"
+        ),
+        packs_dir=_relative(
+            _str(project_table, "packs_dir", where, default="packs"), where, "packs_dir"
+        ),
+        cache_dir=_relative(
+            _str(project_table, "cache_dir", where, default=".sdga/cache"), where, "cache_dir"
+        ),
     )
 
     style_table = _table(raw, "style", where)
     style_where = f"{where} [style]"
     _keys(style_table, _STYLE_KEYS, style_where)
 
-    palette_rel = _relative(_str(style_table, "palette", style_where, required=True),
-                            style_where, "palette")
+    palette_rel = _relative(
+        _str(style_table, "palette", style_where, required=True), style_where, "palette"
+    )
     palette_file = project_cfg.root / palette_rel
     colors = read_gpl(palette_file, style_where)
     declared_colors = _int(style_table, "palette_colors", style_where, default=len(colors))
@@ -372,8 +392,9 @@ def load_config(project: str | Path) -> Config:
     kind = _str(backend_table, "kind", backend_where, default="comfyui")
     if kind not in {"comfyui", "fake"}:
         raise ConfigError(
-            f"unknown backend kind {kind!r}", location=backend_where,
-            remedy='known kinds: comfyui, fake',
+            f"unknown backend kind {kind!r}",
+            location=backend_where,
+            remedy="known kinds: comfyui, fake",
         )
     url = _str(backend_table, "url", backend_where, default="http://127.0.0.1:8188")
     retry_table = _table(backend_table, "retry", backend_where, required=False)
@@ -381,12 +402,10 @@ def load_config(project: str | Path) -> Config:
     backend_cfg = BackendConfig(
         kind=kind,
         url=url,
-        ws_url=_str(backend_table, "ws_url", backend_where,
-                    default="ws://127.0.0.1:8188/ws"),
+        ws_url=_str(backend_table, "ws_url", backend_where, default="ws://127.0.0.1:8188/ws"),
         timeout_s=_num(backend_table, "timeout_s", backend_where, default=900.0),
         poll_interval_s=_num(backend_table, "poll_interval_s", backend_where, default=0.5),
-        max_concurrency=_int(backend_table, "max_concurrency", backend_where, default=1,
-                             minimum=1),
+        max_concurrency=_int(backend_table, "max_concurrency", backend_where, default=1, minimum=1),
         retry_attempts=_int(retry_table, "attempts", backend_where, default=2, minimum=0),
         retry_backoff_s=_num(retry_table, "backoff_s", backend_where, default=5.0),
     )
@@ -395,8 +414,7 @@ def load_config(project: str | Path) -> Config:
     pack_where = f"{where} [pack]"
     _keys(pack_table, _PACK_KEYS, pack_where)
     pack_cfg = PackConfig(
-        id_template=_str(pack_table, "id_template", pack_where,
-                         default="{project}-{date}-{seq}"),
+        id_template=_str(pack_table, "id_template", pack_where, default="{project}-{date}-{seq}"),
         require_review=_bool(pack_table, "require_review", pack_where, default=True),
         include_raw=_bool(pack_table, "include_raw", pack_where, default=False),
     )
@@ -407,8 +425,9 @@ def load_config(project: str | Path) -> Config:
     thresholds = _table(gates_table, "thresholds", gates_where, required=False)
     on_fail = _str(gates_table, "on_fail", gates_where, default="reject")
     if on_fail not in {"reject", "warn"}:
-        raise ConfigError(f"on_fail must be 'reject' or 'warn', got {on_fail!r}",
-                          location=gates_where)
+        raise ConfigError(
+            f"on_fail must be 'reject' or 'warn', got {on_fail!r}", location=gates_where
+        )
     gates_cfg = GatesConfig(on_fail=on_fail, thresholds=dict(thresholds))
 
     return Config(

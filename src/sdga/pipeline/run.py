@@ -11,10 +11,11 @@ import json
 import platform
 import secrets
 import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any
 
 from PIL import Image
 
@@ -32,11 +33,11 @@ from ..validate import DEFAULT_GATES, GateContext, evaluate, failed, severity
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def new_run_id() -> str:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     return f"{stamp}-{secrets.token_hex(2)}"
 
 
@@ -93,11 +94,15 @@ def run_dir_for(config: Config, run_id: str | None = None) -> Path:
                 remedy=f"available runs: {_available_runs(root)}",
             )
         return candidate
-    candidates = sorted(
-        (path for path in root.glob("*") if (path / "run.json").is_file()),
-        key=lambda path: path.name,
-        reverse=True,
-    ) if root.is_dir() else []
+    candidates = (
+        sorted(
+            (path for path in root.glob("*") if (path / "run.json").is_file()),
+            key=lambda path: path.name,
+            reverse=True,
+        )
+        if root.is_dir()
+        else []
+    )
     if not candidates:
         raise SdgaError("no runs yet", remedy="run `sdga run` first")
     return candidates[0]
@@ -161,16 +166,10 @@ def execute_job(
                 payload=dict(report.error or {}),
             )
         if not report.artifacts:
-            raise BackendError(
-                "bad_output", f"{request.asset_id}: backend returned no artifact"
-            )
+            raise BackendError("bad_output", f"{request.asset_id}: backend returned no artifact")
 
-        raw_path = backend.fetch(
-            report.artifacts[0], run_dir / "raw" / f"{spec.slug}.png"
-        )
-        record["raw"] = [
-            {"path": _relative(raw_path, config.root), "sha256": hash_file(raw_path)}
-        ]
+        raw_path = backend.fetch(report.artifacts[0], run_dir / "raw" / f"{spec.slug}.png")
+        record["raw"] = [{"path": _relative(raw_path, config.root), "sha256": hash_file(raw_path)}]
 
         # Verify it is decodable before spending time on the chain: a corrupt fetch is a
         # bad artifact, not a postprocess bug.
@@ -198,9 +197,7 @@ def execute_job(
         ]
         record["postprocess"] = chain
 
-        results = evaluate(
-            gate_names(recipe, spec), processed, gate_context(config, spec, palette)
-        )
+        results = evaluate(gate_names(recipe, spec), processed, gate_context(config, spec, palette))
         record["gates"] = [result.to_dict() for result in results]
         record["status"] = "rejected" if failed(results, spec.gates) else "accepted"
 
@@ -231,9 +228,7 @@ def execute_run(
     registry = recipes if recipes is not None else load_recipes(config)
     specs = load_specs(config)
     by_id = {spec.id: spec for spec in specs}
-    plan = build_plan(
-        config, specs, assets=assets, recipes=registry, require_recipes=True
-    )
+    plan = build_plan(config, specs, assets=assets, recipes=registry, require_recipes=True)
 
     if dry_run:
         for request in plan.requests:

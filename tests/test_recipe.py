@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 from _project import REPO_ROOT, make_project
@@ -135,7 +136,9 @@ def test_a_partial_marker_is_rejected(tmp_path: Path):
 
 
 def test_an_unknown_postprocess_op_is_caught_at_load(tmp_path: Path):
-    path = _copy_recipe(tmp_path, yaml_edit=lambda text: text.replace("  - pad_to_grid", "  - sharpen"))
+    path = _copy_recipe(
+        tmp_path, yaml_edit=lambda text: text.replace("  - pad_to_grid", "  - sharpen")
+    )
     with pytest.raises(RecipeError) as caught:
         load_recipe(path)
     assert "unknown postprocess op" in str(caught.value)
@@ -152,7 +155,9 @@ def test_an_unknown_gate_is_caught_at_load(tmp_path: Path):
 
 
 def test_the_output_node_must_be_a_save_node(tmp_path: Path):
-    path = _copy_recipe(tmp_path, yaml_edit=lambda text: text.replace('output_node: "12"', 'output_node: "7"'))
+    path = _copy_recipe(
+        tmp_path, yaml_edit=lambda text: text.replace('output_node: "12"', 'output_node: "7"')
+    )
     with pytest.raises(RecipeError) as caught:
         load_recipe(path)
     assert "not an output node" in str(caught.value)

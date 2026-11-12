@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import difflib
 import re
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 import yaml
 
-from .canonical import hash_file
 from .config import Config
 from .errors import ConfigError, SpecError
 from .model import (
@@ -318,9 +318,7 @@ def _size(value: Any, where: str) -> tuple[int, int]:
     return (int(value[0]), int(value[1]))
 
 
-def _layout(
-    value: Any, frames: int | None, kind: AssetKind, where: str
-) -> tuple[int, int] | None:
+def _layout(value: Any, frames: int | None, kind: AssetKind, where: str) -> tuple[int, int] | None:
     if value is None:
         return None if frames is None else (frames, 1)
     if not isinstance(value, dict):
@@ -337,8 +335,9 @@ def _layout(
     if isinstance(rows, bool) or not isinstance(rows, int) or rows < 1:
         raise SpecError("layout.rows must be an integer >= 1", location=where)
     if frames is None:
-        raise SpecError(f"layout is only valid for animated kinds, not {kind.value!r}",
-                        location=where)
+        raise SpecError(
+            f"layout is only valid for animated kinds, not {kind.value!r}", location=where
+        )
     if cols * rows != frames:
         raise SpecError(
             f"layout.cols * layout.rows is {cols * rows} but frames is {frames}",
@@ -413,7 +412,7 @@ def _check_depends(specs: Sequence[AssetSpec]) -> None:
         if node in done:
             return
         if node in visiting:
-            cycle = " -> ".join([*trail[trail.index(node):], node])
+            cycle = " -> ".join([*trail[trail.index(node) :], node])
             raise SpecError(
                 f"depends_on cycle: {cycle}",
                 remedy="dependency graphs must be acyclic so plan order is well defined",

@@ -7,9 +7,10 @@ a GPU.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Mapping
+from typing import Any
 
 from ..canonical import fold32, hash_obj
 
@@ -29,7 +30,7 @@ class AssetKind(StrEnum):
     MUSIC_TRACK = "music_track"
 
     @classmethod
-    def parse(cls, raw: object) -> "AssetKind":
+    def parse(cls, raw: object) -> AssetKind:
         try:
             return cls(str(raw))
         except ValueError:
@@ -43,7 +44,7 @@ class SeedPolicy(StrEnum):
     RANDOM = "random"
 
     @classmethod
-    def parse(cls, raw: object) -> "SeedPolicy":
+    def parse(cls, raw: object) -> SeedPolicy:
         try:
             return cls(str(raw))
         except ValueError:
@@ -62,7 +63,7 @@ class ReferenceRole(StrEnum):
     MASK = "mask"
 
     @classmethod
-    def parse(cls, raw: object) -> "ReferenceRole":
+    def parse(cls, raw: object) -> ReferenceRole:
         try:
             return cls(str(raw))
         except ValueError:

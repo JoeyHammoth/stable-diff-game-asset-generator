@@ -7,7 +7,8 @@ renamed node or a missing checkpoint into a table row instead of a stack trace.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ..base import BackendProfile, DeviceInfo
 

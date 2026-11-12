@@ -9,8 +9,8 @@ Gates measure; ops change. Nothing here writes to disk.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Callable, Mapping, Sequence
 
 from PIL import Image
 
@@ -77,9 +77,7 @@ OPS: Mapping[str, Op] = {
 }
 
 
-def apply_chain(
-    image: Image.Image, chain: Sequence[str], ctx: OpContext
-) -> Image.Image:
+def apply_chain(image: Image.Image, chain: Sequence[str], ctx: OpContext) -> Image.Image:
     """Run ops in declared order. An unknown name is a recipe bug, not a runtime fallback."""
     result = image
     for name in chain:

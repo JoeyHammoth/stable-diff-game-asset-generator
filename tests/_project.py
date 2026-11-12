@@ -31,12 +31,8 @@ PALETTE_COLORS: tuple[tuple[int, int, int], ...] = (
     (240, 168, 72),
 )
 
-PALETTE_GPL = (
-    "GIMP Palette\nName: Test 16\nColumns: 8\n#\n"
-    + "".join(
-        f"{r:3d} {g:3d} {b:3d}\tcolor{index}\n"
-        for index, (r, g, b) in enumerate(PALETTE_COLORS)
-    )
+PALETTE_GPL = "GIMP Palette\nName: Test 16\nColumns: 8\n#\n" + "".join(
+    f"{r:3d} {g:3d} {b:3d}\tcolor{index}\n" for index, (r, g, b) in enumerate(PALETTE_COLORS)
 )
 
 TOML = """\

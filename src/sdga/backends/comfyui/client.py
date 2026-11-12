@@ -16,12 +16,12 @@ caller-supplied id, which is what makes submission idempotent across process res
 from __future__ import annotations
 
 import json
-import socket
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 from uuid import uuid4
 
 from ...errors import BackendError
@@ -49,9 +49,7 @@ class ComfyUIClient:
         data: bytes | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> tuple[int, bytes]:
-        request = urllib.request.Request(
-            f"{self.base_url}{path}", data=data, method=method
-        )
+        request = urllib.request.Request(f"{self.base_url}{path}", data=data, method=method)
         for key, value in (headers or {}).items():
             request.add_header(key, value)
         try:
@@ -60,7 +58,7 @@ class ComfyUIClient:
         except urllib.error.HTTPError as exc:
             # A 400 is a graph problem, not a transport problem: callers need the body.
             return exc.code, exc.read()
-        except (urllib.error.URLError, socket.timeout, OSError) as exc:
+        except (TimeoutError, urllib.error.URLError, OSError) as exc:
             raise BackendError(
                 "unreachable",
                 f"{self.base_url}{path}: {exc}",
@@ -85,9 +83,9 @@ class ComfyUIClient:
     # ------------------------------------------------------------------ endpoints
 
     def submit(self, graph: Mapping[str, Any], *, prompt_id: str, client_id: str) -> dict:
-        body = json.dumps(
-            {"prompt": graph, "client_id": client_id, "prompt_id": prompt_id}
-        ).encode("utf-8")
+        body = json.dumps({"prompt": graph, "client_id": client_id, "prompt_id": prompt_id}).encode(
+            "utf-8"
+        )
         status, payload = self._request(
             "POST", "/prompt", data=body, headers={"Content-Type": "application/json"}
         )
@@ -123,9 +121,7 @@ class ComfyUIClient:
         return parsed if isinstance(parsed, dict) else {}
 
     def view(self, filename: str, subfolder: str = "", type: str = "output") -> bytes:
-        query = urllib.parse.urlencode(
-            {"filename": filename, "subfolder": subfolder, "type": type}
-        )
+        query = urllib.parse.urlencode({"filename": filename, "subfolder": subfolder, "type": type})
         status, payload = self._request("GET", f"/view?{query}")
         if status == 404:
             raise BackendError(

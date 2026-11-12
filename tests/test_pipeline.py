@@ -7,7 +7,6 @@ import pytest
 from _project import TOML, make_project
 from PIL import Image
 
-from sdga.backends import FakeBackend
 from sdga.backends.comfyui import load_recipes
 from sdga.cli import main, make_backend
 from sdga.config import load_config
@@ -200,9 +199,9 @@ def test_cli_publish_refuses_unreviewed_assets(project: Path, capsys):
 
 
 def test_cli_run_dry_run_prints_the_bound_graph(project: Path, capsys):
-    assert main(
-        ["run", "--project", str(project), "--asset", "terrain/moss_stone", "--dry-run"]
-    ) == 0
+    assert (
+        main(["run", "--project", str(project), "--asset", "terrain/moss_stone", "--dry-run"]) == 0
+    )
     out = capsys.readouterr().out
     assert '"graph"' in out
     assert '"KSampler"' in out

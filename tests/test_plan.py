@@ -72,9 +72,7 @@ def test_prompt_puts_anchors_before_the_subject(project: Path):
 
 
 def test_negative_defaults_to_the_contract_anchors(project: Path):
-    assert _by_id(project, "terrain/moss_stone").negative == (
-        "photorealistic, blurry, gradient"
-    )
+    assert _by_id(project, "terrain/moss_stone").negative == ("photorealistic, blurry, gradient")
 
 
 def test_negative_override_replaces_rather_than_appends(tmp_path: Path):

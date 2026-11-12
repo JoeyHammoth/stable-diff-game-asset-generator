@@ -43,9 +43,7 @@ def test_live_comfyui_generates_one_gated_tile(tmp_path: Path):
     make_project(tmp_path, toml=toml)
     config = load_config(tmp_path)
 
-    outcome = execute_run(
-        config, make_backend(config), assets=["terrain/moss_stone"]
-    )
+    outcome = execute_run(config, make_backend(config), assets=["terrain/moss_stone"])
 
     assert outcome.status == "complete", (outcome.rejected, outcome.failed)
     record = (outcome.run_dir / "run.json").read_text(encoding="utf-8")

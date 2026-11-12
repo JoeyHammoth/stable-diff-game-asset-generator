@@ -14,9 +14,10 @@ from __future__ import annotations
 import difflib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -193,9 +194,7 @@ def load_recipe(path: Path) -> Recipe:
 
     for node_id, node in graph.items():
         if not isinstance(node, dict) or "class_type" not in node:
-            raise RecipeError(
-                f"node {node_id!r} has no class_type", location=graph_path.as_posix()
-            )
+            raise RecipeError(f"node {node_id!r} has no class_type", location=graph_path.as_posix())
 
     output_node = str(document.get("output_node", ""))
     if not output_node:

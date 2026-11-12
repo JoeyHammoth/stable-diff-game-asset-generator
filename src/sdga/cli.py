@@ -9,8 +9,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from . import __version__, doctor
 from .backends import FakeBackend, GenerationBackend
@@ -21,8 +21,8 @@ from .errors import (
     EXIT_FAILURE,
     EXIT_OK,
     EXIT_USAGE,
-    UsageError,
     SdgaError,
+    UsageError,
 )
 from .pack import publish
 from .pipeline import execute_run, run_dir_for, verify_pack, verify_run
@@ -67,11 +67,15 @@ def build_parser() -> argparse.ArgumentParser:
         "plan", parents=[common], help="resolve asset specs into generation requests"
     )
     plan_cmd.add_argument(
-        "--asset", action="append", default=[], metavar="ID",
+        "--asset",
+        action="append",
+        default=[],
+        metavar="ID",
         help="plan only this asset id (repeatable)",
     )
     plan_cmd.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="also print the first resolved request, with its bound graph",
     )
     plan_cmd.add_argument(
@@ -79,11 +83,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plan_cmd.set_defaults(func=cmd_plan)
 
-    run_cmd = sub.add_parser(
-        "run", parents=[common], help="generate, postprocess, and gate assets"
-    )
+    run_cmd = sub.add_parser("run", parents=[common], help="generate, postprocess, and gate assets")
     run_cmd.add_argument(
-        "--asset", action="append", default=[], metavar="ID",
+        "--asset",
+        action="append",
+        default=[],
+        metavar="ID",
         help="run only this asset id (repeatable)",
     )
     run_cmd.add_argument(
@@ -105,9 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate_cmd = sub.add_parser(
         "validate", parents=[common], help="re-run gates over a pack or run; no backend needed"
     )
-    validate_cmd.add_argument(
-        "target", nargs="?", default=None, help="path to a pack directory"
-    )
+    validate_cmd.add_argument("target", nargs="?", default=None, help="path to a pack directory")
     validate_cmd.add_argument("--run", dest="run_id", default=None, help="validate a run instead")
     validate_cmd.add_argument("--json", action="store_true", help="emit rows as JSON")
     validate_cmd.set_defaults(func=cmd_validate)
@@ -158,9 +161,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 def cmd_plan(args: argparse.Namespace) -> int:
     config = load_config(args.project)
     specs = load_specs(config)
-    plan = build_plan(
-        config, specs, assets=args.asset or None, recipes=load_recipes(config)
-    )
+    plan = build_plan(config, specs, assets=args.asset or None, recipes=load_recipes(config))
 
     target = Path(args.out) if args.out else config.plan_path()
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -185,9 +186,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     config = load_config(args.project)
     backend = make_backend(config)
-    outcome = execute_run(
-        config, backend, assets=args.asset or None, dry_run=args.dry_run
-    )
+    outcome = execute_run(config, backend, assets=args.asset or None, dry_run=args.dry_run)
     if args.dry_run:
         return EXIT_OK
 
@@ -231,10 +230,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     else:
         print(f"{'ASSET':<30} {'GATE':<22} {'STATUS':<7} VALUE")
         for row in rows:
-            print(
-                f"{row['asset_id']:<30} {row['gate']:<22} {row['status']:<7} "
-                f"{row.get('value')}"
-            )
+            print(f"{row['asset_id']:<30} {row['gate']:<22} {row['status']:<7} {row.get('value')}")
         print("ok" if ok else "FAILED")
     return EXIT_OK if ok else EXIT_FAILURE
 

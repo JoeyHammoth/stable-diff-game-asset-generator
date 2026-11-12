@@ -7,8 +7,9 @@ the missing node or model file and where to put it.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from .backends import BackendProfile, GenerationBackend
 from .config import Config
@@ -125,9 +126,7 @@ def run(
         )
         return Report(checks=tuple(checks), profile=None)
 
-    checks.append(
-        Check("backend", PASS, f"{profile.kind} {profile.comfyui_version}".strip())
-    )
+    checks.append(Check("backend", PASS, f"{profile.kind} {profile.comfyui_version}".strip()))
     checks.append(Check("profile", PASS, profile.profile_hash))
     checks.append(_checkpoint_check(config, profile))
 
@@ -194,8 +193,10 @@ def _requirement_check(requirement: Requirement, profile: BackendProfile) -> Che
     if missing_models:
         details.append(
             "missing model(s): "
-            + ", ".join(f"{name} ({MODEL_FOLDERS.get(folder, 'models/' + folder)})"
-                        for folder, name in missing_models)
+            + ", ".join(
+                f"{name} ({MODEL_FOLDERS.get(folder, 'models/' + folder)})"
+                for folder, name in missing_models
+            )
         )
         for folder, name in missing_models:
             remedies.append(

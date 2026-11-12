@@ -51,8 +51,8 @@ class ReplayServer:
         self.history = history if history is not None else load("history_success.json")
         self.view_bytes = view_bytes if view_bytes is not None else checkerboard_png()
         self.prompt_status = prompt_status
-        self.prompt_body = prompt_body if prompt_body is not None else load(
-            "prompt_400_node_errors.json"
+        self.prompt_body = (
+            prompt_body if prompt_body is not None else load("prompt_400_node_errors.json")
         )
         self.prompt_requests: list[dict[str, Any]] = []
         self.post_requests: list[tuple[str, bytes]] = []
@@ -65,7 +65,7 @@ class ReplayServer:
         host, port = self._server.server_address[:2]
         return f"http://{host}:{port}"
 
-    def __enter__(self) -> "ReplayServer":
+    def __enter__(self) -> ReplayServer:
         self._thread.start()
         return self
 
@@ -82,7 +82,9 @@ class ReplayServer:
             def log_message(self, *args: object) -> None:  # silence test output
                 pass
 
-            def _send(self, status: int, body: bytes, content_type: str = "application/json") -> None:
+            def _send(
+                self, status: int, body: bytes, content_type: str = "application/json"
+            ) -> None:
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(body)))
@@ -121,9 +123,7 @@ class ReplayServer:
                         payload = {}
                     replay.prompt_requests.append(payload)
                     if replay.prompt_status != 200:
-                        self._send(
-                            replay.prompt_status, json.dumps(replay.prompt_body).encode()
-                        )
+                        self._send(replay.prompt_status, json.dumps(replay.prompt_body).encode())
                         return
                     self._send(
                         200,

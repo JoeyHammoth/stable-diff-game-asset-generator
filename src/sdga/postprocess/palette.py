@@ -12,7 +12,7 @@ machine, which is what lets `palette_conformance` be a gate rather than a hope.
 from __future__ import annotations
 
 import math
-from typing import Sequence
+from collections.abc import Sequence
 
 from PIL import Image
 
@@ -42,17 +42,11 @@ def rgb_to_oklab(rgb: RGB) -> tuple[float, float, float]:
     )
 
 
-def _distance(
-    left: tuple[float, float, float], right: tuple[float, float, float]
-) -> float:
-    return (
-        (left[0] - right[0]) ** 2 + (left[1] - right[1]) ** 2 + (left[2] - right[2]) ** 2
-    )
+def _distance(left: tuple[float, float, float], right: tuple[float, float, float]) -> float:
+    return (left[0] - right[0]) ** 2 + (left[1] - right[1]) ** 2 + (left[2] - right[2]) ** 2
 
 
-def nearest_palette_index(
-    rgb: RGB, palette_lab: Sequence[tuple[float, float, float]]
-) -> int:
+def nearest_palette_index(rgb: RGB, palette_lab: Sequence[tuple[float, float, float]]) -> int:
     """Lowest index wins ties, so the mapping is stable across runs and platforms."""
     target = rgb_to_oklab(rgb)
     best_index = 0

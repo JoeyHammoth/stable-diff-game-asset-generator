@@ -50,8 +50,12 @@ def test_dimensions_exact_fails_with_both_sizes_visible():
 
 
 def test_grid_divisible():
-    assert grid_divisible(_checker((33, 32)), GateContext(size=(33, 32), quantum=32)).status == "fail"
-    assert grid_divisible(_checker((64, 32)), GateContext(size=(64, 32), quantum=32)).status == "pass"
+    assert (
+        grid_divisible(_checker((33, 32)), GateContext(size=(33, 32), quantum=32)).status == "fail"
+    )
+    assert (
+        grid_divisible(_checker((64, 32)), GateContext(size=(64, 32), quantum=32)).status == "pass"
+    )
 
 
 def test_palette_conformance_counts_off_palette_pixels():
@@ -63,7 +67,10 @@ def test_palette_conformance_counts_off_palette_pixels():
 
 
 def test_palette_conformance_passes_on_a_snapped_image():
-    assert palette_conformance(_checker(), GateContext(size=(32, 32), palette=PALETTE)).status == "pass"
+    assert (
+        palette_conformance(_checker(), GateContext(size=(32, 32), palette=PALETTE)).status
+        == "pass"
+    )
 
 
 def test_palette_conformance_skips_when_no_palette_is_configured():
@@ -110,9 +117,7 @@ def test_seam_ratio_of_a_periodic_pattern_is_about_one():
 
 def test_seam_ratio_catches_a_discontinuous_wrap():
     image = Image.new("RGB", (32, 32))
-    image.putdata(
-        [(0, 0, 0) if x < 16 else (255, 255, 255) for y in range(32) for x in range(32)]
-    )
+    image.putdata([(0, 0, 0) if x < 16 else (255, 255, 255) for y in range(32) for x in range(32)])
     assert seam_ratio(image) > 1.5
 
 

@@ -7,8 +7,9 @@ This is what lets CI prove a pack is still correct after a tool upgrade, and wha
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from PIL import Image
 
@@ -77,9 +78,7 @@ def verify_pack(
 ) -> tuple[bool, list[dict[str, Any]]]:
     manifest_path = pack_dir / "pack.json"
     if not manifest_path.is_file():
-        raise SdgaError(
-            f"no pack.json in {pack_dir}", remedy="point validate at a pack directory"
-        )
+        raise SdgaError(f"no pack.json in {pack_dir}", remedy="point validate at a pack directory")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     specs = {spec.id: spec for spec in load_specs(config)}
     palette = palette_for(config)

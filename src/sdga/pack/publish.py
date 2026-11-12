@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import json
 import shutil
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ..canonical import hash_file
 from ..config import Config
@@ -29,7 +30,7 @@ class PackResult:
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _read_run(run_dir: Path) -> dict[str, Any]:
@@ -48,16 +49,14 @@ def _packs_dir(config: Config) -> Path:
 
 def next_pack_id(config: Config, *, today: str | None = None) -> str:
     """`{project}-{date}-{seq}`, with the sequence chosen past anything already on disk."""
-    date = today or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date = today or datetime.now(UTC).strftime("%Y-%m-%d")
     template = config.pack.id_template
     directory = _packs_dir(config)
     directory.mkdir(parents=True, exist_ok=True)
 
     sequence = 1
     while True:
-        candidate = template.format(
-            project=config.project.name, date=date, seq=f"{sequence:02d}"
-        )
+        candidate = template.format(project=config.project.name, date=date, seq=f"{sequence:02d}")
         if not (directory / candidate).exists():
             return candidate
         sequence += 1
@@ -72,17 +71,14 @@ def _engine_hints(asset: Mapping[str, Any], checks: Sequence[Mapping[str, Any]])
     width = files[0].get("width")
     height = files[0].get("height")
     seamless = any(
-        check.get("gate") == "seamless_tile" and check.get("status") == "pass"
-        for check in checks
+        check.get("gate") == "seamless_tile" and check.get("status") == "pass" for check in checks
     )
     if asset.get("kind") == "terrain_tile" and width and height:
         hints["tile"] = {"size": [width, height], "seamless": seamless}
     return hints
 
 
-def publish(
-    config: Config, run_dir: Path, *, allow_unreviewed: bool = False
-) -> PackResult:
+def publish(config: Config, run_dir: Path, *, allow_unreviewed: bool = False) -> PackResult:
     run = _read_run(run_dir)
     accepted = [job for job in run.get("jobs", []) if job.get("status") == "accepted"]
     if not accepted:
@@ -204,8 +200,7 @@ def _write_licenses(pack_dir: Path, config: Config, run: Mapping[str, Any]) -> N
     lines = [
         "# Licences and provenance",
         "",
-        f"Pack produced by sdga {run.get('tool', {}).get('version')} "
-        f"from run {run.get('run_id')}.",
+        f"Pack produced by sdga {run.get('tool', {}).get('version')} from run {run.get('run_id')}.",
         "",
         "## Palette",
         f"- `{palette.path}` ({palette.colors} colours, {palette.sha256})",

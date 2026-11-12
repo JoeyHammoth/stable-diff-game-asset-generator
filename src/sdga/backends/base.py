@@ -7,10 +7,11 @@ job is deterministic, offline output.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Mapping, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from ..canonical import hash_obj
 from ..model import GenerationRequest

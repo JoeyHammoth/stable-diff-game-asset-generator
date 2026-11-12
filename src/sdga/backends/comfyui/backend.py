@@ -7,8 +7,9 @@ tracker that can notice a failure sooner, never one that can declare success.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from ...config import BackendConfig
@@ -72,9 +73,7 @@ class ComfyUIBackend:
             # Idempotent: the same request never queues twice in one process.
             return self._handle(request, prompt_id)
 
-        self._client.submit(
-            request.graph, prompt_id=prompt_id, client_id=self._client_id
-        )
+        self._client.submit(request.graph, prompt_id=prompt_id, client_id=self._client_id)
         self._jobs[prompt_id] = (request, time.monotonic())
         tracker = self._tracker_factory(prompt_id)
         if tracker is not None:
@@ -119,9 +118,7 @@ class ComfyUIBackend:
     def fetch(self, artifact: ArtifactRef, dest: Path) -> Path:
         payload = self._client.view(artifact.filename, artifact.subfolder, artifact.type)
         if not payload:
-            raise BackendError(
-                "bad_output", f"/view returned no bytes for {artifact.filename!r}"
-            )
+            raise BackendError("bad_output", f"/view returned no bytes for {artifact.filename!r}")
         target = Path(dest)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(payload)

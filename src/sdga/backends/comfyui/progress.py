@@ -12,8 +12,9 @@ operation is correct, just slower to notice.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Iterator
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -83,9 +84,7 @@ class WebSocketTracker:
     a socket. A raising source disables the tracker and falls back to polling.
     """
 
-    def __init__(
-        self, prompt_id: str, frames: Callable[[], Iterable[Any]] | None = None
-    ) -> None:
+    def __init__(self, prompt_id: str, frames: Callable[[], Iterable[Any]] | None = None) -> None:
         self._prompt_id = prompt_id
         self._frames = frames
         self._terminal: Terminal | None = None
