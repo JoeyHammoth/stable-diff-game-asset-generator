@@ -1,0 +1,36 @@
+schema: 1
+id: terrain_tile
+version: 3
+graph: terrain_tile.graph.json
+output_node: "12"
+
+# A project pins its own recipe set: this is the terrain recipe the example generated from.
+postprocess:
+  - downscale_box
+  - palette_snap
+  - alpha_hard
+  - pad_to_grid
+
+gates:
+  - dimensions_exact
+  - grid_divisible
+  - palette_conformance
+  - max_unique_colors
+  - seamless_tile
+
+requires:
+  nodes:
+    - CheckpointLoaderSimple
+    - LoraLoader
+    - CLIPTextEncode
+    - EmptyLatentImage
+    - KSampler
+    - VAEDecode
+    - SaveImage
+  models:
+    checkpoints: ["${style.checkpoint}"]
+    loras: ["${style.loras[0].name}"]
+
+slots:
+  required: [positive, negative, seed, width, height]
+  optional: [style_anchor]

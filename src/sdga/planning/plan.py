@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import re
 import secrets
-from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from dataclasses import dataclass, replace
+from typing import Any, Mapping, Protocol, Sequence
 
 from ..canonical import hash_obj, hash_file, pretty_json
 from ..config import Config
@@ -35,6 +35,27 @@ SCREEN_SPACE_KINDS = frozenset({AssetKind.UI_ELEMENT, AssetKind.ICON})
 UI_QUANTUM = 8
 
 _WHITESPACE = re.compile(r"\s+")
+
+
+class RecipeLike(Protocol):
+    """What planning needs from a recipe.
+
+    Structural, so planning never imports the ComfyUI package: a recipe is data and the
+    binder is injected.
+    """
+
+    id: str
+    version: int
+    output_node: str
+
+    @property
+    def key(self) -> str: ...
+
+    def bind(self, context: Mapping[str, Any]) -> Mapping[str, Any]: ...
+
+
+class RecipeRegistryLike(Protocol):
+    def for_kind(self, kind: AssetKind) -> RecipeLike | None: ...
 
 
 @dataclass(frozen=True)
@@ -147,8 +168,32 @@ def _check_quantum(spec: AssetSpec, style: StyleContract) -> None:
             )
 
 
+def bind_context(
+    config: Config, spec: AssetSpec, request: GenerationRequest
+) -> dict[str, Any]:
+    """The flat namespace a recipe's `${slots}` resolve against (docs/03 §3, binder rule 2)."""
+    return {
+        "positive": request.positive,
+        "negative": request.negative,
+        "seed": request.seed,
+        "width": None if request.size is None else request.size[0],
+        "height": None if request.size is None else request.size[1],
+        "final_width": spec.size[0],
+        "final_height": spec.size[1],
+        "filename_prefix": f"sdga/{spec.slug}",
+        "style": config.style.style_body(),
+        "params": dict(request.params),
+        "asset": {"id": spec.id, "kind": spec.kind.value},
+    }
+
+
 def build_plan(
-    config: Config, specs: Sequence[AssetSpec], *, assets: Sequence[str] | None = None
+    config: Config,
+    specs: Sequence[AssetSpec],
+    *,
+    assets: Sequence[str] | None = None,
+    recipes: RecipeRegistryLike | None = None,
+    require_recipes: bool = False,
 ) -> Plan:
     style = config.style
     selected = list(specs)
@@ -168,21 +213,35 @@ def build_plan(
     requests: list[GenerationRequest] = []
     for spec in selected:
         _check_quantum(spec, style)
-        requests.append(
-            GenerationRequest(
-                asset_id=spec.id,
-                kind=spec.kind,
-                backend=config.backend.kind,
-                positive=assemble_positive(style, spec),
-                negative=assemble_negative(style, spec),
-                seed=resolve_seed(style, spec),
-                style_hash=style_hash,
-                refs=resolve_refs(config, spec),
-                params=dict(spec.params),
-                size=render_size(style, spec),
-                final_size=spec.size,
+        recipe = recipes.for_kind(spec.kind) if recipes is not None else None
+        if recipe is None and require_recipes:
+            raise SpecError(
+                f"{spec.id}: no recipe for kind {spec.kind.value!r}",
+                location=spec.source.location() if spec.source else None,
+                remedy=f"add {config.project.recipes_dir}/{spec.kind.value}.yaml",
             )
+
+        request = GenerationRequest(
+            asset_id=spec.id,
+            kind=spec.kind,
+            backend=config.backend.kind,
+            positive=assemble_positive(style, spec),
+            negative=assemble_negative(style, spec),
+            seed=resolve_seed(style, spec),
+            style_hash=style_hash,
+            refs=resolve_refs(config, spec),
+            params=dict(spec.params),
+            size=render_size(style, spec),
+            final_size=spec.size,
         )
+        if recipe is not None:
+            request = replace(
+                request,
+                recipe=recipe.key,
+                output_node=recipe.output_node,
+                graph=recipe.bind(bind_context(config, spec, request)),
+            )
+        requests.append(request)
 
     return Plan(
         project=config.project.name,
@@ -195,8 +254,11 @@ def build_plan(
 __all__ = [
     "AUDIO_KINDS",
     "Plan",
+    "RecipeLike",
+    "RecipeRegistryLike",
     "assemble_negative",
     "assemble_positive",
+    "bind_context",
     "build_plan",
     "grid_quantum",
     "render_size",
