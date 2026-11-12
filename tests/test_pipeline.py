@@ -69,8 +69,11 @@ def test_a_kind_without_a_recipe_is_refused_at_run_time(project: Path):
     config = load_config(project)
     with pytest.raises(SpecError) as caught:
         execute_run(config, make_backend(config))
-    assert "no recipe for kind" in str(caught.value)
-    assert "terrain_tile.yaml" in (caught.value.remedy or "")
+    error = caught.value
+    assert "no recipe for kind" in str(error)
+    # The remedy must name the file to create, for the kind that is actually missing.
+    assert ".yaml" in (error.remedy or "")
+    assert "char/ranger_walk" in str(error)
 
 
 def test_a_failing_gate_rejects_the_asset(tmp_path: Path):

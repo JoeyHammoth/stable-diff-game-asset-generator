@@ -92,16 +92,23 @@ def test_a_chain_runs_in_declared_order():
     assert {pixel[:3] for pixel in out.getdata()} <= set(PALETTE)
 
 
-def test_snapping_before_downscaling_would_quantise_noise_but_still_work():
-    """Order is a recipe decision, not an accident: the chain is applied left to right."""
-    image = Image.new("RGB", (8, 8))
+def test_chain_order_is_observable():
+    """Downscaling after snapping leaves a blended, off-palette pixel.
+
+    This is exactly why the recipe declares [downscale_box, palette_snap] in that order:
+    averaging happens first, so the snap has the final word on colour.
+    """
+    image = Image.new("RGB", (4, 4))
     image.putdata([
-        (250, 250, 250) if x < 4 else (5, 5, 5) for y in range(8) for x in range(8)
+        (0, 0, 0) if x < 2 else (255, 255, 255) for y in range(4) for x in range(4)
     ])
-    context = OpContext(size=(2, 2), palette=PALETTE, grid=2)
-    boxed = apply_chain(image, ["downscale_box", "palette_snap"], context)
-    snapped = apply_chain(image, ["palette_snap", "downscale_box"], context)
-    assert boxed.getpixel((0, 0)) != snapped.getpixel((0, 0)) or boxed.getpixel((0, 0)) == (255, 255, 255)
+    context = OpContext(size=(1, 1), palette=((0, 0, 0), (255, 255, 255)), grid=1)
+
+    snapped_last = apply_chain(image, ["downscale_box", "palette_snap"], context)
+    snapped_first = apply_chain(image, ["palette_snap", "downscale_box"], context)
+
+    assert snapped_last.getpixel((0, 0))[:3] in {(0, 0, 0), (255, 255, 255)}
+    assert snapped_first.getpixel((0, 0))[:3] not in {(0, 0, 0), (255, 255, 255)}
 
 
 def test_an_unknown_op_is_an_error():

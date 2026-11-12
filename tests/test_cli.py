@@ -69,15 +69,20 @@ def test_invalid_spec_exits_with_a_schema_error(project: Path, capsys):
     assert "invalid asset id" in capsys.readouterr().err
 
 
-def test_unbuilt_backend_exits_as_unavailable(tmp_path: Path, capsys):
-    make_project(tmp_path, toml=TOML.replace('kind = "fake"', 'kind = "comfyui"'))
+def test_a_comfyui_backend_that_is_not_running_exits_as_unavailable(tmp_path: Path, capsys):
+    # Port 9 is the discard service: reliably refused, so this cannot flake on a dev box
+    # that happens to have ComfyUI listening on 8188.
+    toml = TOML.replace('kind = "fake"', 'kind = "comfyui"\nurl = "http://127.0.0.1:9"')
+    make_project(tmp_path, toml=toml)
     assert main(["doctor", "--project", str(tmp_path)]) == 3
-    assert "P1" in capsys.readouterr().err
+    out = capsys.readouterr().out
+    assert "backend" in out
+    assert "unreachable" in out
 
 
 def test_unimplemented_command_exits_as_usage_error(project: Path, capsys):
-    assert main(["run", "--project", str(project)]) == 2
-    assert "phase P1" in capsys.readouterr().err
+    assert main(["review", "--project", str(project)]) == 2
+    assert "phase P3" in capsys.readouterr().err
 
 
 def test_unknown_command_exits_two():

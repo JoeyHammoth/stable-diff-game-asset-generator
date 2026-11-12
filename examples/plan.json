@@ -45,9 +45,111 @@
         32,
         32
       ],
+      "graph": {
+        "1": {
+          "class_type": "CheckpointLoaderSimple",
+          "inputs": {
+            "ckpt_name": "sd_v1-5.safetensors"
+          }
+        },
+        "12": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": "sdga/terrain__moss_stone",
+            "images": [
+              "7",
+              0
+            ]
+          }
+        },
+        "2": {
+          "class_type": "LoraLoader",
+          "inputs": {
+            "clip": [
+              "1",
+              1
+            ],
+            "lora_name": "example_style.safetensors",
+            "model": [
+              "1",
+              0
+            ],
+            "strength_clip": 0.85,
+            "strength_model": 0.85
+          }
+        },
+        "3": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, seamless tileable mossy cobblestone floor, top-down 2d game tile, dark grey and green tones, flat, no gradients"
+          }
+        },
+        "4": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality"
+          }
+        },
+        "5": {
+          "class_type": "EmptyLatentImage",
+          "inputs": {
+            "batch_size": 1,
+            "height": 512,
+            "width": 512
+          }
+        },
+        "6": {
+          "class_type": "KSampler",
+          "inputs": {
+            "cfg": 7.0,
+            "denoise": 1.0,
+            "latent_image": [
+              "5",
+              0
+            ],
+            "model": [
+              "2",
+              0
+            ],
+            "negative": [
+              "4",
+              0
+            ],
+            "positive": [
+              "3",
+              0
+            ],
+            "sampler_name": "euler_ancestral",
+            "scheduler": "karras",
+            "seed": 1773396371,
+            "steps": 25
+          }
+        },
+        "7": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "6",
+              0
+            ],
+            "vae": [
+              "1",
+              2
+            ]
+          }
+        }
+      },
       "kind": "terrain_tile",
       "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
-      "output_node": null,
+      "output_node": "12",
       "params": {
         "cfg": 7.0,
         "denoise": 1.0,
@@ -56,7 +158,7 @@
         "steps": 25
       },
       "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, seamless tileable mossy cobblestone floor, top-down 2d game tile, dark grey and green tones, flat, no gradients",
-      "recipe": null,
+      "recipe": "terrain_tile@3",
       "refs": [
         {
           "path": "concepts/cleaned/dungeon_floor.png",
@@ -64,7 +166,7 @@
           "sha256": "sha256:ac6efef25b6b67d8899d168ee957ec52a72b77631d176ef5ccda95eb8fc11364"
         }
       ],
-      "request_id": "sha256:f2a3342ccfbc2e969c25d33dbfa9e1d8f50ddaa0240812bb5251676bb42c04f1",
+      "request_id": "sha256:ec5ef5a8cdb3a42f6666bdc7ab51730ec397ad4ceedc94051461cd2c7ba7bf85",
       "schema": 1,
       "seed": 1773396371,
       "size": [

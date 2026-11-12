@@ -171,7 +171,12 @@ class ComfyUIBackend:
     def _default_tracker(self, prompt_id: str) -> WebSocketTracker | None:
         if not self.config.ws_url:
             return None
-        frames = open_websocket_frames(self.config.ws_url, self._client_id)
+        try:
+            frames = open_websocket_frames(self.config.ws_url, self._client_id)
+        except Exception:  # noqa: BLE001 - a tracker is an optimisation, never a failure
+            # A missing library or an unreachable socket must degrade to polling, not
+            # abort a submission.
+            return None
         if frames is None:
             return None
         return WebSocketTracker(prompt_id, lambda: frames)
