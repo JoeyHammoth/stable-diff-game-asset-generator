@@ -25,7 +25,15 @@ from .paths import relative_path
 CONFIG_NAME = "sdga.toml"
 
 _TOP_KEYS = {"schema", "project", "style", "backend", "pack", "gates"}
-_PROJECT_KEYS = {"name", "root", "asset_globs", "runs_dir", "packs_dir", "cache_dir"}
+_PROJECT_KEYS = {
+    "name",
+    "root",
+    "asset_globs",
+    "recipes_dir",
+    "runs_dir",
+    "packs_dir",
+    "cache_dir",
+}
 _STYLE_KEYS = {
     "name",
     "trigger_token",
@@ -61,6 +69,7 @@ class ProjectConfig:
     name: str
     root: Path
     asset_globs: tuple[str, ...]
+    recipes_dir: str
     runs_dir: str
     packs_dir: str
     cache_dir: str
@@ -282,6 +291,8 @@ def load_config(project: str | Path) -> Config:
         name=name,
         root=root,
         asset_globs=tuple(globs),
+        recipes_dir=_relative(_str(project_table, "recipes_dir", where, default="recipes"),
+                              where, "recipes_dir"),
         runs_dir=_relative(_str(project_table, "runs_dir", where, default="runs"),
                            where, "runs_dir"),
         packs_dir=_relative(_str(project_table, "packs_dir", where, default="packs"),

@@ -141,18 +141,19 @@ class FakeBackend:
 
 
 def _render(request: GenerationRequest) -> Image.Image:
+    """A two-tone checkerboard, offset by the seed.
+
+    Period 2 is not arbitrary: it is genuinely seam-continuous, so `seamless_tile`
+    measures the same thing it would on a real tile instead of failing on the fake.
+    """
     assert request.size is not None  # guarded in submit()
     width, height = request.size
     image = Image.new("RGB", (width, height))
-    seed = request.seed
     tones = _TONES
-    count = len(tones)
-    pixels = [
-        tones[((x * 3 + y * 5 + seed) // 11) % count]
-        for y in range(height)
-        for x in range(width)
-    ]
-    image.putdata(pixels)  # type: ignore[arg-type]
+    pair = (tones[request.seed % len(tones)], tones[(request.seed + 1) % len(tones)])
+    image.putdata(
+        [pair[(x + y) % 2] for y in range(height) for x in range(width)]  # type: ignore[arg-type]
+    )
     return image
 
 
