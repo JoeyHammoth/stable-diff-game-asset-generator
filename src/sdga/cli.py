@@ -294,7 +294,11 @@ def cmd_review(args: argparse.Namespace) -> int:
     if not targets:
         record = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
         targets = sorted(
-            {str(job["asset_id"]) for job in record.get("jobs", []) if job.get("status") == "accepted"}
+            {
+                str(job["asset_id"])
+                for job in record.get("jobs", [])
+                if job.get("status") == "accepted"
+            }
         )
         if not targets:
             raise UsageError(

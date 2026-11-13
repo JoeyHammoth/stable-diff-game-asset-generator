@@ -13,7 +13,6 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from sdga.backends import FakeBackend
 from sdga.backends.comfyui import ComfyUIBackend, load_recipes
 from sdga.backends.comfyui.client import ComfyUIClient
 from sdga.cli import main, make_backend
@@ -30,7 +29,6 @@ from sdga.postprocess import (
     center_anchor,
     depth_to_normal,
     despeckle,
-    downscale_box,
     frame_grid,
     ninepatch_margins,
     ninepatch_mirror,
@@ -108,9 +106,9 @@ def test_frames_aligned_fails_when_one_frame_floats():
 
 
 def test_frame_count_rejects_a_sheet_that_does_not_match_its_layout():
-    assert frame_count(Image.new("RGBA", (64, 32)), GateContext(size=(64, 32), frames=2)).status == (
-        "pass"
-    )
+    assert frame_count(
+        Image.new("RGBA", (64, 32)), GateContext(size=(64, 32), frames=2)
+    ).status == ("pass")
     wrong = frame_count(
         Image.new("RGBA", (32, 32)), GateContext(size=(64, 32), frames=2, layout=(2, 1))
     )
@@ -158,13 +156,11 @@ def test_both_pose_paths_bind_from_the_same_specs(project: Path):
     assert sheet.graph != variant.graph
     # Both bind the authored pose sheet by role, through the content-addressed handle.
     assert any(
-        isinstance(node["inputs"].get("image"), str)
-        and node["inputs"]["image"].startswith("sdga_")
+        isinstance(node["inputs"].get("image"), str) and node["inputs"]["image"].startswith("sdga_")
         for node in (sheet.graph or {}).values()
     )
     assert any(
-        isinstance(node["inputs"].get("image"), str)
-        and node["inputs"]["image"].startswith("sdga_")
+        isinstance(node["inputs"].get("image"), str) and node["inputs"]["image"].startswith("sdga_")
         for node in (variant.graph or {}).values()
     )
 
@@ -236,9 +232,7 @@ def test_ninepatch_mirror_is_bitwise_symmetric():
 
     mirrored = ninepatch_mirror(image, OpContext(size=(64, 16)))
     horizontal, vertical = ninepatch_margins(mirrored)
-    result = symmetry_9patch(
-        mirrored, GateContext(size=(64, 16), kind=AssetKind.UI_ELEMENT)
-    )
+    result = symmetry_9patch(mirrored, GateContext(size=(64, 16), kind=AssetKind.UI_ELEMENT))
 
     assert result.status == "pass"
     assert 2 * max(horizontal, vertical) < 16 or result.value == [0, 0]
@@ -309,9 +303,7 @@ def test_a_normal_map_run_passes_its_gate(project: Path):
     config = load_config(project)
     outcome = execute_run(config, make_backend(config), assets=["terrain/moss_stone_normal"])
     record = json.loads((outcome.run_dir / "run.json").read_text(encoding="utf-8"))
-    statuses = {
-        gate["gate"]: gate["status"] for gate in record["jobs"][0]["gates"]
-    }
+    statuses = {gate["gate"]: gate["status"] for gate in record["jobs"][0]["gates"]}
 
     assert statuses["normal_map_valid"] == "pass"
     assert outcome.accepted == 1
@@ -372,9 +364,7 @@ def test_review_refuses_an_asset_that_is_not_in_the_run(project: Path, capsys):
     config = load_config(project)
     execute_run(config, make_backend(config), assets=["terrain/moss_stone"])
 
-    assert (
-        main(["review", "--project", str(project), "--reject", "--asset", "terrain/nope"]) == 1
-    )
+    assert main(["review", "--project", str(project), "--reject", "--asset", "terrain/nope"]) == 1
     assert "not in run" in capsys.readouterr().err
 
 
@@ -386,8 +376,15 @@ def test_review_decision_needs_exactly_one_of_approve_or_reject(project: Path):
 
 def test_a_rejected_asset_stays_out_of_the_pack(project: Path, capsys):
     config = load_config(project)
-    execute_run(config, make_backend(config), assets=["terrain/moss_stone"])
-    assert main(["review", "--project", str(project), "--reject"]) == 0
+    execute_run(config, make_backend(config), assets=["terrain/moss_stone", "ui/button_normal"])
+    assert (
+        main(["review", "--project", str(project), "--reject", "--asset", "terrain/moss_stone"])
+        == 0
+    )
 
     assert main(["publish", "--project", str(project), "--allow-unreviewed"]) == 0
-    assert "published" in capsys.readouterr().out
+    assert "1 asset(s)" in capsys.readouterr().out
+
+    pack = sorted((project / "packs").iterdir())[-1]
+    manifest = json.loads((pack / "pack.json").read_text(encoding="utf-8"))
+    assert [asset["id"] for asset in manifest["assets"]] == ["ui/button_normal"]

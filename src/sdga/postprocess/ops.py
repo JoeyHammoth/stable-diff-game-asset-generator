@@ -224,7 +224,9 @@ def ninepatch_margins(image: Image.Image) -> tuple[int, int]:
         return raw[y * width * 4 : (y + 1) * width * 4]
 
     def column(x: int) -> bytes:
-        return b"".join(raw[offset + x * 4 : offset + (x + 1) * 4] for offset in range(0, len(raw), width * 4))
+        return b"".join(
+            raw[offset + x * 4 : offset + (x + 1) * 4] for offset in range(0, len(raw), width * 4)
+        )
 
     vertical = 0
     while vertical < height // 2 and row(vertical) == row(0):
@@ -411,7 +413,9 @@ def _border_colour(image: Image.Image) -> RGB | None:
     width, height = source.size
     counts: dict[RGB, int] = {}
     points = [(x, 0) for x in range(width)] + [(x, height - 1) for x in range(width)]
-    points += [(0, y) for y in range(1, height - 1)] + [(width - 1, y) for y in range(1, height - 1)]
+    points += [(0, y) for y in range(1, height - 1)] + [
+        (width - 1, y) for y in range(1, height - 1)
+    ]
     for point in points:
         r, g, b, a = source.getpixel(point)
         if a:
@@ -446,7 +450,8 @@ def bg_remove(image: Image.Image, ctx: OpContext) -> Image.Image:
         if raw[offset + 3] == 0:
             return False
         return all(
-            abs(raw[offset + channel] - background[channel]) <= ctx.tolerance for channel in range(3)
+            abs(raw[offset + channel] - background[channel]) <= ctx.tolerance
+            for channel in range(3)
         )
 
     while stack:

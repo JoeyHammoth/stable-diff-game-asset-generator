@@ -215,7 +215,9 @@ def test_the_registry_exposes_versions_and_requirements(project: Path):
     assert registry.for_kind(AssetKind.TERRAIN_TILE) is not None
     assert registry.for_kind(AssetKind.SPRITE_SHEET) is not None
 
-    requirement = next(r for r in registry.requirements(config.style) if r.recipe.startswith("terrain"))
+    requirement = next(
+        r for r in registry.requirements(config.style) if r.recipe.startswith("terrain")
+    )
     assert requirement.recipe == "terrain_tile@3"
     assert "KSampler" in requirement.nodes
     assert requirement.models["checkpoints"] == ("sd_v1-5.safetensors",)

@@ -7,7 +7,6 @@ depends on that property.
 
 from __future__ import annotations
 
-import hashlib
 import re
 import secrets
 from collections.abc import Mapping, Sequence

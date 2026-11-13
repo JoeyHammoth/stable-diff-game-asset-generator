@@ -106,7 +106,13 @@ def _engine_hints(
 
 def publish(config: Config, run_dir: Path, *, allow_unreviewed: bool = False) -> PackResult:
     run = _read_run(run_dir)
-    accepted = [job for job in run.get("jobs", []) if job.get("status") == "accepted"]
+    # A review rejection is a decision, not a warning: the asset stays out of the pack even
+    # when publishing is otherwise overridden.
+    accepted = [
+        job
+        for job in run.get("jobs", [])
+        if job.get("status") == "accepted" and (job.get("review") or {}).get("status") != "rejected"
+    ]
     if not accepted:
         raise SdgaError(
             f"run {run.get('run_id')} has no accepted jobs",

@@ -51,7 +51,7 @@ def record_review(
     if decision not in (APPROVED, REJECTED):
         raise SdgaError(
             f"unknown review decision {decision!r}",
-            remedy=f"use --approve or --reject",
+            remedy="use --approve or --reject",
         )
     path = run_dir / "run.json"
     if not path.is_file():
@@ -93,7 +93,9 @@ def write_contact_sheet(config: Config, run_dir: Path, record: Mapping[str, Any]
     """
     jobs = list(record.get("jobs", []))
     rows: list[str] = []
-    for job in sorted(jobs, key=lambda entry: (str(entry.get("asset_id")), entry.get("candidate", 0))):
+    for job in sorted(
+        jobs, key=lambda entry: (str(entry.get("asset_id")), entry.get("candidate", 0))
+    ):
         status = job.get("status")
         post = (job.get("post") or [{}])[0].get("path")
         result = (
@@ -101,17 +103,20 @@ def write_contact_sheet(config: Config, run_dir: Path, record: Mapping[str, Any]
             if post
             else "—"
         )
-        refs = "".join(
-            f'<figure><img src="{html.escape(_relative(ref.get("path"), run_dir, config.root))}" '
-            f'alt="{html.escape(str(ref.get("role")))}">'
-            f"<figcaption>{html.escape(str(ref.get('role')))}</figcaption></figure>"
-            for ref in job.get("refs", [])
-        ) or "<span class=missing>no references</span>"
+        refs = (
+            "".join(
+                f'<figure><img src="{html.escape(_relative(ref.get("path"), run_dir, config.root))}" '
+                f'alt="{html.escape(str(ref.get("role")))}">'
+                f"<figcaption>{html.escape(str(ref.get('role')))}</figcaption></figure>"
+                for ref in job.get("refs", [])
+            )
+            or "<span class=missing>no references</span>"
+        )
         review = (job.get("review") or {}).get("status", "pending")
         gates = job.get("gates", [])
-        gate_text = ", ".join(
-            f"{gate.get('gate')}: {gate.get('status')}" for gate in gates
-        ) or "no gates"
+        gate_text = (
+            ", ".join(f"{gate.get('gate')}: {gate.get('status')}" for gate in gates) or "no gates"
+        )
         rows.append(
             "<tr>"
             f"<td><code>{html.escape(str(job.get('asset_id')))}</code>"
