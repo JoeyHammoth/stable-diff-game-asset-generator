@@ -1,19 +1,25 @@
 schema: 1
 id: concept
-version: 1
+version: 2
 graph: concept.graph.json
 output_node: "12"
 
 # Concept art is a reference the rest of the project is measured against, so it is cleaned
 # rather than locked to the palette: `bg_remove` stays available but off, because cutting the
 # background out of a generated asset would hide a prompt that failed to ask for transparency.
+#
+# It therefore does not gate on colour count: a live SD1.5 render measures ~40k colours, and
+# `max_unique_colors` exists to protect *game-ready* art. What concept art can be held to is
+# its final size, and the anti-aliasing hint (`aa_suspect`, warn by default in the spec).
 postprocess:
+  - downscale_box
   - alpha_hard
   - despeckle
   - pad_to_grid
 
 gates:
-  - max_unique_colors
+  - dimensions_exact
+  - aa_suspect
 
 requires:
   nodes:

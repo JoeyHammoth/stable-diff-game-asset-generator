@@ -9,6 +9,7 @@ assets:
     size: [64, 64]
     references:
       style_anchor: concepts/cleaned/ranger_front.png
+    gates: { aa_suspect: warn }   # a hint about the render, not a publish blocker
 
   - id: ui/coin_icon
     kind: icon

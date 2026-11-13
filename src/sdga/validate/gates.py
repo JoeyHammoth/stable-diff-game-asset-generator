@@ -388,7 +388,7 @@ DEFAULT_GATES: Mapping[AssetKind, tuple[str, ...]] = {
         "max_unique_colors",
         "seamless_tile",
     ),
-    AssetKind.CONCEPT: ("max_unique_colors",),
+    AssetKind.CONCEPT: ("dimensions_exact", "aa_suspect"),
     AssetKind.SPRITE_SHEET: (
         "dimensions_exact",
         "frame_count",

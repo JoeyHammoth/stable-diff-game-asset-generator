@@ -836,7 +836,7 @@
       "output_node": "12",
       "params": {},
       "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, portrait bust of the forest ranger, front view, flat colours, readable silhouette, transparent background",
-      "recipe": "concept@1",
+      "recipe": "concept@2",
       "refs": [
         {
           "backend_handle": "sdga_3eba7924d6fcfba5.png",
@@ -845,7 +845,7 @@
           "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
         }
       ],
-      "request_id": "sha256:115f375b87ecf1f8e0e7955e8f6e3f2285be4bd6391a3628f4d90c6e0f19084c",
+      "request_id": "sha256:1735e8536c263c29c64aa22a690ed660964f69516eb487c08c821e05b6e7d5f4",
       "schema": 1,
       "seed": 122562750,
       "size": [
