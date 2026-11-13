@@ -1,0 +1,19 @@
+schema: 1
+
+assets:
+  - id: concept/ranger_portrait
+    kind: concept
+    prompt: >-
+      portrait bust of the forest ranger, front view, flat colours,
+      readable silhouette, transparent background
+    size: [64, 64]
+    references:
+      style_anchor: concepts/cleaned/ranger_front.png
+    gates: { aa_suspect: warn }   # a hint about the render, not a publish blocker
+
+  - id: ui/coin_icon
+    kind: icon
+    prompt: >-
+      small gold coin pickup icon, empty background, thick dark outline, no text
+    size: [16, 16]
+    params: { steps: 20, cfg: 6.5 }

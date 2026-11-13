@@ -41,6 +41,9 @@ CONTEXT_ROOTS = frozenset(
         "style",
         "params",
         "asset",
+        "refs",
+        "frames",
+        "cells",
     }
 )
 
@@ -49,6 +52,7 @@ OUTPUT_CLASSES = frozenset({"SaveImage", "PreviewImage", "SaveAnimatedWEBP"})
 _RECIPE_KEYS = {
     "schema",
     "id",
+    "kind",
     "version",
     "graph",
     "output_node",
@@ -73,6 +77,7 @@ class Recipe:
     requires_models: Mapping[str, tuple[str, ...]]
     slots_required: tuple[str, ...]
     slots_optional: tuple[str, ...]
+    kind: AssetKind | None = None
     source: str = ""
 
     @property
@@ -104,7 +109,19 @@ class RecipeRegistry:
         return self.recipes.get(recipe_id)
 
     def for_kind(self, kind: AssetKind) -> Recipe | None:
-        return self.recipes.get(kind.value)
+        """The recipe for a kind: same id, else the alphabetically-first declared `kind:`.
+
+        Two recipes may serve one kind (a default and an img2img variant); the id match wins
+        so the default never depends on file names, and the variant is selected explicitly.
+        """
+        direct = self.recipes.get(kind.value)
+        if direct is not None:
+            return direct
+        for recipe_id in sorted(self.recipes):
+            candidate = self.recipes[recipe_id]
+            if candidate.kind is kind:
+                return candidate
+        return None
 
     def requirements(self, style: StyleContract) -> tuple[Requirement, ...]:
         """What each recipe needs from a backend, with `${style.*}` resolved."""
@@ -249,6 +266,13 @@ def load_recipe(path: Path) -> Recipe:
     slots_required = tuple(str(name) for name in slots.get("required") or ())
     slots_optional = tuple(str(name) for name in slots.get("optional") or ())
 
+    kind: AssetKind | None = None
+    if document.get("kind") is not None:
+        try:
+            kind = AssetKind.parse(document["kind"])
+        except ValueError as exc:
+            raise RecipeError(str(exc), location=display) from None
+
     for expr in _markers(graph):
         root = re.split(r"[.\[]", expr, maxsplit=1)[0]
         if root not in CONTEXT_ROOTS:
@@ -269,6 +293,7 @@ def load_recipe(path: Path) -> Recipe:
         requires_models=models,
         slots_required=slots_required,
         slots_optional=slots_optional,
+        kind=kind,
         source=display,
     )
 

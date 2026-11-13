@@ -211,11 +211,13 @@ def test_a_graph_file_that_is_absent_is_reported(tmp_path: Path):
 def test_the_registry_exposes_versions_and_requirements(project: Path):
     config = load_config(project)
     registry = load_recipes(config)
-    assert registry.versions == {"terrain_tile": "3"}
+    assert registry.versions["terrain_tile"] == "3"
     assert registry.for_kind(AssetKind.TERRAIN_TILE) is not None
-    assert registry.for_kind(AssetKind.SPRITE_SHEET) is None
+    assert registry.for_kind(AssetKind.SPRITE_SHEET) is not None
 
-    requirement = registry.requirements(config.style)[0]
+    requirement = next(
+        r for r in registry.requirements(config.style) if r.recipe.startswith("terrain")
+    )
     assert requirement.recipe == "terrain_tile@3"
     assert "KSampler" in requirement.nodes
     assert requirement.models["checkpoints"] == ("sd_v1-5.safetensors",)
@@ -225,6 +227,15 @@ def test_the_registry_exposes_versions_and_requirements(project: Path):
 def test_a_project_without_recipes_gets_an_empty_registry(tmp_path: Path):
     make_project(tmp_path, with_recipes=False)
     assert load_recipes(load_config(tmp_path)).versions == {}
+
+
+def test_a_recipe_may_declare_the_kind_it_serves(project: Path):
+    registry = load_recipes(load_config(project))
+    variant = registry.get("sprite_sheet_img2img")
+    assert variant is not None
+    assert variant.kind is AssetKind.SPRITE_SHEET
+    # The default still wins for the kind: an explicit id match is never overridden.
+    assert registry.for_kind(AssetKind.SPRITE_SHEET).id == "sprite_sheet"
 
 
 def test_duplicate_recipe_ids_are_rejected(project: Path):

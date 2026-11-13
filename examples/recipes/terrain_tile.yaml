@@ -4,7 +4,8 @@ version: 3
 graph: terrain_tile.graph.json
 output_node: "12"
 
-# A project pins its own recipe set: this is the terrain recipe the example generated from.
+# The deterministic half. Everything after the sampler: average down before snapping so
+# structure survives, snap to the one palette, harden alpha, then pad to whole cells.
 postprocess:
   - downscale_box
   - palette_snap

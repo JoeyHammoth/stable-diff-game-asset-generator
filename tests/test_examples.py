@@ -12,7 +12,16 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 
 def test_examples_project_is_valid():
     config = load_config(EXAMPLES)
-    assert len(load_specs(config)) == 4
+    # Every image kind in phase P2 is represented, so the project exercises each recipe.
+    kinds = {spec.kind.value for spec in load_specs(config)}
+    assert kinds == {
+        "concept",
+        "icon",
+        "normal_map",
+        "sprite_sheet",
+        "terrain_tile",
+        "ui_element",
+    }
 
 
 def test_the_examples_palette_is_a_png_swatch_grid():

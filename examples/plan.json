@@ -4,32 +4,175 @@
     {
       "asset_id": "char/ranger_walk",
       "backend": "fake",
+      "candidate": 0,
       "final_size": [
-        32,
+        256,
         32
       ],
+      "graph": {
+        "1": {
+          "class_type": "CheckpointLoaderSimple",
+          "inputs": {
+            "ckpt_name": "sd_v1-5.safetensors"
+          }
+        },
+        "10": {
+          "class_type": "ControlNetApplyAdvanced",
+          "inputs": {
+            "control_net": [
+              "9",
+              0
+            ],
+            "end_percent": 1.0,
+            "image": [
+              "8",
+              0
+            ],
+            "negative": [
+              "4",
+              0
+            ],
+            "positive": [
+              "3",
+              0
+            ],
+            "start_percent": 0.0,
+            "strength": 0.8
+          }
+        },
+        "12": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": "sdga/char__ranger_walk",
+            "images": [
+              "7",
+              0
+            ]
+          }
+        },
+        "2": {
+          "class_type": "LoraLoader",
+          "inputs": {
+            "clip": [
+              "1",
+              1
+            ],
+            "lora_name": "example_style.safetensors",
+            "model": [
+              "1",
+              0
+            ],
+            "strength_clip": 0.85,
+            "strength_model": 0.85
+          }
+        },
+        "3": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background"
+          }
+        },
+        "4": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality"
+          }
+        },
+        "5": {
+          "class_type": "EmptyLatentImage",
+          "inputs": {
+            "batch_size": 1,
+            "height": 64,
+            "width": 512
+          }
+        },
+        "6": {
+          "class_type": "KSampler",
+          "inputs": {
+            "cfg": 7.5,
+            "denoise": 1.0,
+            "latent_image": [
+              "5",
+              0
+            ],
+            "model": [
+              "2",
+              0
+            ],
+            "negative": [
+              "10",
+              1
+            ],
+            "positive": [
+              "10",
+              0
+            ],
+            "sampler_name": "euler_ancestral",
+            "scheduler": "karras",
+            "seed": 3761125115,
+            "steps": 28
+          }
+        },
+        "7": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "6",
+              0
+            ],
+            "vae": [
+              "1",
+              2
+            ]
+          }
+        },
+        "8": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "sdga_2a5bb712cdce9718.png"
+          }
+        },
+        "9": {
+          "class_type": "ControlNetLoader",
+          "inputs": {
+            "control_net_name": "controlnet_openpose.safetensors"
+          }
+        }
+      },
       "kind": "sprite_sheet",
       "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
-      "output_node": null,
+      "output_node": "12",
       "params": {
         "cfg": 7.5,
+        "controlnet": "controlnet_openpose.safetensors",
+        "controlnet_strength": 0.8,
         "steps": 28
       },
       "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background",
-      "recipe": null,
+      "recipe": "sprite_sheet@1",
       "refs": [
         {
+          "backend_handle": "sdga_2a5bb712cdce9718.png",
           "path": "style/skeletons/walk_8frame.png",
           "role": "pose",
           "sha256": "sha256:2a5bb712cdce9718a89a1413b08899fa74a34b30996c47842f2897160774a517"
         },
         {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
           "path": "concepts/cleaned/ranger_front.png",
           "role": "style_anchor",
           "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
         }
       ],
-      "request_id": "sha256:08bfe46bdcdfb324b02e240395c2782c16fcdffbcafdd6c4320f95455eecf46b",
+      "request_id": "sha256:7aeb692f8053a2dae32f707caf6841097d63489c19d817bfdab3ece80cd56802",
       "schema": 1,
       "seed": 3761125115,
       "size": [
@@ -39,8 +182,682 @@
       "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
     },
     {
+      "asset_id": "char/ranger_walk",
+      "backend": "fake",
+      "candidate": 1,
+      "final_size": [
+        256,
+        32
+      ],
+      "graph": {
+        "1": {
+          "class_type": "CheckpointLoaderSimple",
+          "inputs": {
+            "ckpt_name": "sd_v1-5.safetensors"
+          }
+        },
+        "10": {
+          "class_type": "ControlNetApplyAdvanced",
+          "inputs": {
+            "control_net": [
+              "9",
+              0
+            ],
+            "end_percent": 1.0,
+            "image": [
+              "8",
+              0
+            ],
+            "negative": [
+              "4",
+              0
+            ],
+            "positive": [
+              "3",
+              0
+            ],
+            "start_percent": 0.0,
+            "strength": 0.8
+          }
+        },
+        "12": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": "sdga/char__ranger_walk",
+            "images": [
+              "7",
+              0
+            ]
+          }
+        },
+        "2": {
+          "class_type": "LoraLoader",
+          "inputs": {
+            "clip": [
+              "1",
+              1
+            ],
+            "lora_name": "example_style.safetensors",
+            "model": [
+              "1",
+              0
+            ],
+            "strength_clip": 0.85,
+            "strength_model": 0.85
+          }
+        },
+        "3": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background"
+          }
+        },
+        "4": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality"
+          }
+        },
+        "5": {
+          "class_type": "EmptyLatentImage",
+          "inputs": {
+            "batch_size": 1,
+            "height": 64,
+            "width": 512
+          }
+        },
+        "6": {
+          "class_type": "KSampler",
+          "inputs": {
+            "cfg": 7.5,
+            "denoise": 1.0,
+            "latent_image": [
+              "5",
+              0
+            ],
+            "model": [
+              "2",
+              0
+            ],
+            "negative": [
+              "10",
+              1
+            ],
+            "positive": [
+              "10",
+              0
+            ],
+            "sampler_name": "euler_ancestral",
+            "scheduler": "karras",
+            "seed": 2270998761,
+            "steps": 28
+          }
+        },
+        "7": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "6",
+              0
+            ],
+            "vae": [
+              "1",
+              2
+            ]
+          }
+        },
+        "8": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "sdga_2a5bb712cdce9718.png"
+          }
+        },
+        "9": {
+          "class_type": "ControlNetLoader",
+          "inputs": {
+            "control_net_name": "controlnet_openpose.safetensors"
+          }
+        }
+      },
+      "kind": "sprite_sheet",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": "12",
+      "params": {
+        "cfg": 7.5,
+        "controlnet": "controlnet_openpose.safetensors",
+        "controlnet_strength": 0.8,
+        "steps": 28
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background",
+      "recipe": "sprite_sheet@1",
+      "refs": [
+        {
+          "backend_handle": "sdga_2a5bb712cdce9718.png",
+          "path": "style/skeletons/walk_8frame.png",
+          "role": "pose",
+          "sha256": "sha256:2a5bb712cdce9718a89a1413b08899fa74a34b30996c47842f2897160774a517"
+        },
+        {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
+          "path": "concepts/cleaned/ranger_front.png",
+          "role": "style_anchor",
+          "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
+        }
+      ],
+      "request_id": "sha256:e00e82483234811bcfbf019d73fd2f5b23a87c158df358304c4dbf49ecc1d36d",
+      "schema": 1,
+      "seed": 2270998761,
+      "size": [
+        512,
+        64
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
+      "asset_id": "char/ranger_walk",
+      "backend": "fake",
+      "candidate": 2,
+      "final_size": [
+        256,
+        32
+      ],
+      "graph": {
+        "1": {
+          "class_type": "CheckpointLoaderSimple",
+          "inputs": {
+            "ckpt_name": "sd_v1-5.safetensors"
+          }
+        },
+        "10": {
+          "class_type": "ControlNetApplyAdvanced",
+          "inputs": {
+            "control_net": [
+              "9",
+              0
+            ],
+            "end_percent": 1.0,
+            "image": [
+              "8",
+              0
+            ],
+            "negative": [
+              "4",
+              0
+            ],
+            "positive": [
+              "3",
+              0
+            ],
+            "start_percent": 0.0,
+            "strength": 0.8
+          }
+        },
+        "12": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": "sdga/char__ranger_walk",
+            "images": [
+              "7",
+              0
+            ]
+          }
+        },
+        "2": {
+          "class_type": "LoraLoader",
+          "inputs": {
+            "clip": [
+              "1",
+              1
+            ],
+            "lora_name": "example_style.safetensors",
+            "model": [
+              "1",
+              0
+            ],
+            "strength_clip": 0.85,
+            "strength_model": 0.85
+          }
+        },
+        "3": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background"
+          }
+        },
+        "4": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality"
+          }
+        },
+        "5": {
+          "class_type": "EmptyLatentImage",
+          "inputs": {
+            "batch_size": 1,
+            "height": 64,
+            "width": 512
+          }
+        },
+        "6": {
+          "class_type": "KSampler",
+          "inputs": {
+            "cfg": 7.5,
+            "denoise": 1.0,
+            "latent_image": [
+              "5",
+              0
+            ],
+            "model": [
+              "2",
+              0
+            ],
+            "negative": [
+              "10",
+              1
+            ],
+            "positive": [
+              "10",
+              0
+            ],
+            "sampler_name": "euler_ancestral",
+            "scheduler": "karras",
+            "seed": 3572998090,
+            "steps": 28
+          }
+        },
+        "7": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "6",
+              0
+            ],
+            "vae": [
+              "1",
+              2
+            ]
+          }
+        },
+        "8": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "sdga_2a5bb712cdce9718.png"
+          }
+        },
+        "9": {
+          "class_type": "ControlNetLoader",
+          "inputs": {
+            "control_net_name": "controlnet_openpose.safetensors"
+          }
+        }
+      },
+      "kind": "sprite_sheet",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": "12",
+      "params": {
+        "cfg": 7.5,
+        "controlnet": "controlnet_openpose.safetensors",
+        "controlnet_strength": 0.8,
+        "steps": 28
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background",
+      "recipe": "sprite_sheet@1",
+      "refs": [
+        {
+          "backend_handle": "sdga_2a5bb712cdce9718.png",
+          "path": "style/skeletons/walk_8frame.png",
+          "role": "pose",
+          "sha256": "sha256:2a5bb712cdce9718a89a1413b08899fa74a34b30996c47842f2897160774a517"
+        },
+        {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
+          "path": "concepts/cleaned/ranger_front.png",
+          "role": "style_anchor",
+          "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
+        }
+      ],
+      "request_id": "sha256:9d6bfe33e671ea790c0ca0b1cea7dbb14e2ddf68a085c070c0d3409977e9e5fc",
+      "schema": 1,
+      "seed": 3572998090,
+      "size": [
+        512,
+        64
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
+      "asset_id": "char/ranger_walk",
+      "backend": "fake",
+      "candidate": 3,
+      "final_size": [
+        256,
+        32
+      ],
+      "graph": {
+        "1": {
+          "class_type": "CheckpointLoaderSimple",
+          "inputs": {
+            "ckpt_name": "sd_v1-5.safetensors"
+          }
+        },
+        "10": {
+          "class_type": "ControlNetApplyAdvanced",
+          "inputs": {
+            "control_net": [
+              "9",
+              0
+            ],
+            "end_percent": 1.0,
+            "image": [
+              "8",
+              0
+            ],
+            "negative": [
+              "4",
+              0
+            ],
+            "positive": [
+              "3",
+              0
+            ],
+            "start_percent": 0.0,
+            "strength": 0.8
+          }
+        },
+        "12": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": "sdga/char__ranger_walk",
+            "images": [
+              "7",
+              0
+            ]
+          }
+        },
+        "2": {
+          "class_type": "LoraLoader",
+          "inputs": {
+            "clip": [
+              "1",
+              1
+            ],
+            "lora_name": "example_style.safetensors",
+            "model": [
+              "1",
+              0
+            ],
+            "strength_clip": 0.85,
+            "strength_model": 0.85
+          }
+        },
+        "3": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background"
+          }
+        },
+        "4": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality"
+          }
+        },
+        "5": {
+          "class_type": "EmptyLatentImage",
+          "inputs": {
+            "batch_size": 1,
+            "height": 64,
+            "width": 512
+          }
+        },
+        "6": {
+          "class_type": "KSampler",
+          "inputs": {
+            "cfg": 7.5,
+            "denoise": 1.0,
+            "latent_image": [
+              "5",
+              0
+            ],
+            "model": [
+              "2",
+              0
+            ],
+            "negative": [
+              "10",
+              1
+            ],
+            "positive": [
+              "10",
+              0
+            ],
+            "sampler_name": "euler_ancestral",
+            "scheduler": "karras",
+            "seed": 3062289338,
+            "steps": 28
+          }
+        },
+        "7": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "6",
+              0
+            ],
+            "vae": [
+              "1",
+              2
+            ]
+          }
+        },
+        "8": {
+          "class_type": "LoadImage",
+          "inputs": {
+            "image": "sdga_2a5bb712cdce9718.png"
+          }
+        },
+        "9": {
+          "class_type": "ControlNetLoader",
+          "inputs": {
+            "control_net_name": "controlnet_openpose.safetensors"
+          }
+        }
+      },
+      "kind": "sprite_sheet",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": "12",
+      "params": {
+        "cfg": 7.5,
+        "controlnet": "controlnet_openpose.safetensors",
+        "controlnet_strength": 0.8,
+        "steps": 28
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background",
+      "recipe": "sprite_sheet@1",
+      "refs": [
+        {
+          "backend_handle": "sdga_2a5bb712cdce9718.png",
+          "path": "style/skeletons/walk_8frame.png",
+          "role": "pose",
+          "sha256": "sha256:2a5bb712cdce9718a89a1413b08899fa74a34b30996c47842f2897160774a517"
+        },
+        {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
+          "path": "concepts/cleaned/ranger_front.png",
+          "role": "style_anchor",
+          "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
+        }
+      ],
+      "request_id": "sha256:8b1a09ac30ee71dfb36f84ede0493c014e91e0409c589fb6c93da65ba0668324",
+      "schema": 1,
+      "seed": 3062289338,
+      "size": [
+        512,
+        64
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
+      "asset_id": "concept/ranger_portrait",
+      "backend": "fake",
+      "candidate": 0,
+      "final_size": [
+        64,
+        64
+      ],
+      "graph": {
+        "1": {
+          "class_type": "CheckpointLoaderSimple",
+          "inputs": {
+            "ckpt_name": "sd_v1-5.safetensors"
+          }
+        },
+        "12": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": "sdga/concept__ranger_portrait",
+            "images": [
+              "7",
+              0
+            ]
+          }
+        },
+        "2": {
+          "class_type": "LoraLoader",
+          "inputs": {
+            "clip": [
+              "1",
+              1
+            ],
+            "lora_name": "example_style.safetensors",
+            "model": [
+              "1",
+              0
+            ],
+            "strength_clip": 0.85,
+            "strength_model": 0.85
+          }
+        },
+        "3": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, portrait bust of the forest ranger, front view, flat colours, readable silhouette, transparent background"
+          }
+        },
+        "4": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality"
+          }
+        },
+        "5": {
+          "class_type": "EmptyLatentImage",
+          "inputs": {
+            "batch_size": 1,
+            "height": 512,
+            "width": 512
+          }
+        },
+        "6": {
+          "class_type": "KSampler",
+          "inputs": {
+            "cfg": 7.0,
+            "denoise": 1.0,
+            "latent_image": [
+              "5",
+              0
+            ],
+            "model": [
+              "2",
+              0
+            ],
+            "negative": [
+              "4",
+              0
+            ],
+            "positive": [
+              "3",
+              0
+            ],
+            "sampler_name": "euler_ancestral",
+            "scheduler": "karras",
+            "seed": 122562750,
+            "steps": 25
+          }
+        },
+        "7": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "6",
+              0
+            ],
+            "vae": [
+              "1",
+              2
+            ]
+          }
+        }
+      },
+      "kind": "concept",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": "12",
+      "params": {},
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, portrait bust of the forest ranger, front view, flat colours, readable silhouette, transparent background",
+      "recipe": "concept@2",
+      "refs": [
+        {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
+          "path": "concepts/cleaned/ranger_front.png",
+          "role": "style_anchor",
+          "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
+        }
+      ],
+      "request_id": "sha256:1735e8536c263c29c64aa22a690ed660964f69516eb487c08c821e05b6e7d5f4",
+      "schema": 1,
+      "seed": 122562750,
+      "size": [
+        512,
+        512
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
       "asset_id": "terrain/moss_stone",
       "backend": "fake",
+      "candidate": 0,
       "final_size": [
         32,
         32
@@ -161,12 +978,13 @@
       "recipe": "terrain_tile@3",
       "refs": [
         {
+          "backend_handle": "sdga_ac6efef25b6b67d8.png",
           "path": "concepts/cleaned/dungeon_floor.png",
           "role": "style_anchor",
           "sha256": "sha256:ac6efef25b6b67d8899d168ee957ec52a72b77631d176ef5ccda95eb8fc11364"
         }
       ],
-      "request_id": "sha256:ef27b07d1124e2afb2a3c26f6a6182431c648a750367edc379bbefd6f13c7697",
+      "request_id": "sha256:09dd1e1be9efd473ce151f41daaaa86431145307f392e1fed4083d64aae6ee45",
       "schema": 1,
       "seed": 1716381561,
       "size": [
@@ -178,13 +996,116 @@
     {
       "asset_id": "terrain/moss_stone_normal",
       "backend": "fake",
+      "candidate": 0,
       "final_size": [
         32,
         32
       ],
+      "graph": {
+        "1": {
+          "class_type": "CheckpointLoaderSimple",
+          "inputs": {
+            "ckpt_name": "sd_v1-5.safetensors"
+          }
+        },
+        "12": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": "sdga/terrain__moss_stone_normal",
+            "images": [
+              "7",
+              0
+            ]
+          }
+        },
+        "2": {
+          "class_type": "LoraLoader",
+          "inputs": {
+            "clip": [
+              "1",
+              1
+            ],
+            "lora_name": "example_style.safetensors",
+            "model": [
+              "1",
+              0
+            ],
+            "strength_clip": 0.85,
+            "strength_model": 0.85
+          }
+        },
+        "3": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro"
+          }
+        },
+        "4": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality"
+          }
+        },
+        "5": {
+          "class_type": "EmptyLatentImage",
+          "inputs": {
+            "batch_size": 1,
+            "height": 512,
+            "width": 512
+          }
+        },
+        "6": {
+          "class_type": "KSampler",
+          "inputs": {
+            "cfg": 7.0,
+            "denoise": 1.0,
+            "latent_image": [
+              "5",
+              0
+            ],
+            "model": [
+              "2",
+              0
+            ],
+            "negative": [
+              "4",
+              0
+            ],
+            "positive": [
+              "3",
+              0
+            ],
+            "sampler_name": "euler_ancestral",
+            "scheduler": "karras",
+            "seed": 1585377537,
+            "steps": 25
+          }
+        },
+        "7": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "6",
+              0
+            ],
+            "vae": [
+              "1",
+              2
+            ]
+          }
+        }
+      },
       "kind": "normal_map",
       "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
-      "output_node": null,
+      "output_node": "12",
       "params": {
         "cfg": 7.0,
         "flip_g": false,
@@ -194,9 +1115,9 @@
         "steps": 25
       },
       "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro",
-      "recipe": null,
+      "recipe": "normal_map@1",
       "refs": [],
-      "request_id": "sha256:473b888654063a2d8c0f23949c861810cbff3360728aee0b67c1285e860b69a1",
+      "request_id": "sha256:31f64982932a67a07cd16dd8bfdc852795b81b0a992c0cfcfa7be34ec0f526f3",
       "schema": 1,
       "seed": 1585377537,
       "size": [
@@ -208,26 +1129,259 @@
     {
       "asset_id": "ui/button_normal",
       "backend": "fake",
+      "candidate": 0,
       "final_size": [
         64,
         16
       ],
+      "graph": {
+        "1": {
+          "class_type": "CheckpointLoaderSimple",
+          "inputs": {
+            "ckpt_name": "sd_v1-5.safetensors"
+          }
+        },
+        "12": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": "sdga/ui__button_normal",
+            "images": [
+              "7",
+              0
+            ]
+          }
+        },
+        "2": {
+          "class_type": "LoraLoader",
+          "inputs": {
+            "clip": [
+              "1",
+              1
+            ],
+            "lora_name": "example_style.safetensors",
+            "model": [
+              "1",
+              0
+            ],
+            "strength_clip": 0.85,
+            "strength_model": 0.85
+          }
+        },
+        "3": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, rounded stone button, empty center, no text, 9-slice friendly frame"
+          }
+        },
+        "4": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality"
+          }
+        },
+        "5": {
+          "class_type": "EmptyLatentImage",
+          "inputs": {
+            "batch_size": 1,
+            "height": 512,
+            "width": 512
+          }
+        },
+        "6": {
+          "class_type": "KSampler",
+          "inputs": {
+            "cfg": 7.0,
+            "denoise": 1.0,
+            "latent_image": [
+              "5",
+              0
+            ],
+            "model": [
+              "2",
+              0
+            ],
+            "negative": [
+              "4",
+              0
+            ],
+            "positive": [
+              "3",
+              0
+            ],
+            "sampler_name": "euler_ancestral",
+            "scheduler": "karras",
+            "seed": 539619845,
+            "steps": 25
+          }
+        },
+        "7": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "6",
+              0
+            ],
+            "vae": [
+              "1",
+              2
+            ]
+          }
+        }
+      },
       "kind": "ui_element",
       "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
-      "output_node": null,
+      "output_node": "12",
       "params": {},
       "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, rounded stone button, empty center, no text, 9-slice friendly frame",
-      "recipe": null,
+      "recipe": "ui_element@1",
       "refs": [
         {
+          "backend_handle": "sdga_6e9a0f2de7cb0a14.png",
           "path": "style/wireframes/button_64x16.png",
           "role": "wireframe",
           "sha256": "sha256:6e9a0f2de7cb0a149795713cc8fbba8fca95ac0e46d126e6eb55bd6be66006b3"
         }
       ],
-      "request_id": "sha256:f142c358ea1bbcdbe86caff09c48b23043d91b5aa1e7b8cce4072445eaa715ea",
+      "request_id": "sha256:d2a4aa959b17de6cb59e4808191a8e0cf9ca388c5f19bfbd7b6e42f83c55d4c0",
       "schema": 1,
       "seed": 539619845,
+      "size": [
+        512,
+        512
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
+      "asset_id": "ui/coin_icon",
+      "backend": "fake",
+      "candidate": 0,
+      "final_size": [
+        16,
+        16
+      ],
+      "graph": {
+        "1": {
+          "class_type": "CheckpointLoaderSimple",
+          "inputs": {
+            "ckpt_name": "sd_v1-5.safetensors"
+          }
+        },
+        "12": {
+          "class_type": "SaveImage",
+          "inputs": {
+            "filename_prefix": "sdga/ui__coin_icon",
+            "images": [
+              "7",
+              0
+            ]
+          }
+        },
+        "2": {
+          "class_type": "LoraLoader",
+          "inputs": {
+            "clip": [
+              "1",
+              1
+            ],
+            "lora_name": "example_style.safetensors",
+            "model": [
+              "1",
+              0
+            ],
+            "strength_clip": 0.85,
+            "strength_model": 0.85
+          }
+        },
+        "3": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, small gold coin pickup icon, empty background, thick dark outline, no text"
+          }
+        },
+        "4": {
+          "class_type": "CLIPTextEncode",
+          "inputs": {
+            "clip": [
+              "2",
+              1
+            ],
+            "text": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality"
+          }
+        },
+        "5": {
+          "class_type": "EmptyLatentImage",
+          "inputs": {
+            "batch_size": 1,
+            "height": 512,
+            "width": 512
+          }
+        },
+        "6": {
+          "class_type": "KSampler",
+          "inputs": {
+            "cfg": 6.5,
+            "denoise": 1.0,
+            "latent_image": [
+              "5",
+              0
+            ],
+            "model": [
+              "2",
+              0
+            ],
+            "negative": [
+              "4",
+              0
+            ],
+            "positive": [
+              "3",
+              0
+            ],
+            "sampler_name": "euler_ancestral",
+            "scheduler": "karras",
+            "seed": 1147031285,
+            "steps": 20
+          }
+        },
+        "7": {
+          "class_type": "VAEDecode",
+          "inputs": {
+            "samples": [
+              "6",
+              0
+            ],
+            "vae": [
+              "1",
+              2
+            ]
+          }
+        }
+      },
+      "kind": "icon",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": "12",
+      "params": {
+        "cfg": 6.5,
+        "steps": 20
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, small gold coin pickup icon, empty background, thick dark outline, no text",
+      "recipe": "icon@1",
+      "refs": [],
+      "request_id": "sha256:ad56b36848fd8936fe21176a36491f2e995fce402da6f084859af95d44a87545",
+      "schema": 1,
+      "seed": 1147031285,
       "size": [
         512,
         512

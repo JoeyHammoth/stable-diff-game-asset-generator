@@ -65,25 +65,54 @@ def next_pack_id(config: Config, *, today: str | None = None) -> str:
         sequence += 1
 
 
-def _engine_hints(asset: Mapping[str, Any], checks: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Advisory facts an engine needs, derived from the gates rather than guessed."""
+def _engine_hints(
+    job: Mapping[str, Any], files: Sequence[Mapping[str, Any]], checks: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    """Advisory facts an engine needs, derived from the run rather than guessed."""
     hints: dict[str, Any] = {}
-    files = asset.get("files") or []
     if not files:
         return hints
     width = files[0].get("width")
     height = files[0].get("height")
+    kind = job.get("kind")
     seamless = any(
         check.get("gate") == "seamless_tile" and check.get("status") == "pass" for check in checks
     )
-    if asset.get("kind") == "terrain_tile" and width and height:
+    if kind == "terrain_tile" and width and height:
         hints["tile"] = {"size": [width, height], "seamless": seamless}
+
+    frames = int(job.get("frames") or 1)
+    layout = job.get("layout") or [1, 1]
+    if kind == "sprite_sheet" and width and height and frames > 1 and layout[0] and layout[1]:
+        hints["sprite"] = {
+            "frame_size": [width // layout[0], height // layout[1]],
+            "cols": layout[0],
+            "rows": layout[1],
+            "frames": frames,
+        }
+
+    margins = (job.get("ui") or {}).get("margins")
+    if kind in {"ui_element", "icon"} and margins:
+        # The gate already proved 2*max(margin) < edge; an engine can stretch the centre.
+        hints["ui"] = {"margins": list(margins), "ninepatch": True}
+
+    if kind == "normal_map":
+        hints["normal"] = {
+            "space": "tangent",
+            "flip_g": bool((job.get("params") or {}).get("flip_g", False)),
+        }
     return hints
 
 
 def publish(config: Config, run_dir: Path, *, allow_unreviewed: bool = False) -> PackResult:
     run = _read_run(run_dir)
-    accepted = [job for job in run.get("jobs", []) if job.get("status") == "accepted"]
+    # A review rejection is a decision, not a warning: the asset stays out of the pack even
+    # when publishing is otherwise overridden.
+    accepted = [
+        job
+        for job in run.get("jobs", [])
+        if job.get("status") == "accepted" and (job.get("review") or {}).get("status") != "rejected"
+    ]
     if not accepted:
         raise SdgaError(
             f"run {run.get('run_id')} has no accepted jobs",
@@ -98,7 +127,7 @@ def publish(config: Config, run_dir: Path, *, allow_unreviewed: bool = False) ->
             raise SdgaError(
                 f"{len(unapproved)} accepted asset(s) have no review decision",
                 remedy=(
-                    "the review command arrives in phase P3; until then publish with "
+                    "review them with `sdga review --approve --asset ID`, or publish with "
                     "--allow-unreviewed, which records the override in pack.json"
                 ),
             )
@@ -139,7 +168,7 @@ def publish(config: Config, run_dir: Path, *, allow_unreviewed: bool = False) ->
                 "bytes": target.stat().st_size,
             }
         ]
-        engine = _engine_hints({"kind": job.get("kind"), "files": files}, checks)
+        engine = _engine_hints(job, files, checks)
         entry: dict[str, Any] = {
             "id": asset_id,
             "kind": job.get("kind"),

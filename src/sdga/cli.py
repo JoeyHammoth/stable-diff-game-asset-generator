@@ -28,11 +28,11 @@ from .pack import publish
 from .palettes import extract_palette, write_palette
 from .pipeline import execute_run, run_dir_for, verify_pack, verify_run
 from .planning import build_plan
+from .review import record_review
 from .specs import load_specs
 
 # Still ahead of this build. Named explicitly so the gap is visible, not silent.
 STUBS: dict[str, tuple[str, str]] = {
-    "review": ("P3", "record approve/reject decisions"),
     "adapt": ("P5", "emit engine hints from a pack"),
 }
 
@@ -116,6 +116,23 @@ def build_parser() -> argparse.ArgumentParser:
     validate_cmd.add_argument("--json", action="store_true", help="emit rows as JSON")
     validate_cmd.set_defaults(func=cmd_validate)
 
+    review_cmd = sub.add_parser(
+        "review", parents=[common], help="approve or reject a run's assets; writes review.html"
+    )
+    review_cmd.add_argument("--run", dest="run_id", default=None, help="run id (default: latest)")
+    review_cmd.add_argument(
+        "--asset",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="asset id to decide (repeatable; default: every accepted asset)",
+    )
+    decision = review_cmd.add_mutually_exclusive_group(required=True)
+    decision.add_argument("--approve", action="store_true", help="accept these assets")
+    decision.add_argument("--reject", action="store_true", help="reject these assets")
+    review_cmd.add_argument("--note", default=None, help="why, for the record")
+    review_cmd.set_defaults(func=cmd_review)
+
     palette_cmd = sub.add_parser("palette", help="author the project palette (a one-time step)")
     palette_sub = palette_cmd.add_subparsers(
         dest="palette_command", required=True, metavar="COMMAND"
@@ -164,6 +181,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def make_backend(config: Config) -> GenerationBackend:
     if config.backend.kind == "fake":
+        # The fake has no uploads: references are hashed at plan time and never sent.
         # The fake reports the models the style actually asks for, so doctor is telling
         # the truth about this project rather than about a hardcoded fixture.
         style = config.style
@@ -173,7 +191,8 @@ def make_backend(config: Config) -> GenerationBackend:
                 "loras": tuple(lora.name for lora in style.loras),
             }
         )
-    return ComfyUIBackend(config.backend)
+    # The project root lets the adapter upload references by content address (T17).
+    return ComfyUIBackend(config.backend, project_root=config.root)
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
@@ -223,9 +242,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(
         f"run {outcome.run_id}: {outcome.status} "
         f"({outcome.accepted} accepted, {outcome.rejected} rejected, "
-        f"{outcome.failed} failed)"
+        f"{outcome.failed} failed, {outcome.superseded} superseded)"
     )
     print(f"wrote {_display(outcome.run_dir / 'run.json', config.root)}")
+    print(f"review sheet: {_display(outcome.run_dir / 'review.html', config.root)}")
     return EXIT_OK if outcome.status == "complete" else EXIT_FAILURE
 
 
@@ -263,6 +283,34 @@ def cmd_validate(args: argparse.Namespace) -> int:
             print(f"{row['asset_id']:<30} {row['gate']:<22} {row['status']:<7} {row.get('value')}")
         print("ok" if ok else "FAILED")
     return EXIT_OK if ok else EXIT_FAILURE
+
+
+def cmd_review(args: argparse.Namespace) -> int:
+    config = load_config(args.project)
+    run_dir = run_dir_for(config, args.run_id)
+    decision = "approved" if args.approve else "rejected"
+
+    targets = list(args.asset)
+    if not targets:
+        record = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+        targets = sorted(
+            {
+                str(job["asset_id"])
+                for job in record.get("jobs", [])
+                if job.get("status") == "accepted"
+            }
+        )
+        if not targets:
+            raise UsageError(
+                "this run has no accepted assets to review",
+                remedy="fix the failing gates, then run again",
+            )
+
+    for asset_id in targets:
+        record_review(config, run_dir, asset_id, decision, note=args.note)
+        print(f"{asset_id}: {decision}")
+    print(f"wrote {_display(run_dir / 'review.html', config.root)}")
+    return EXIT_OK
 
 
 def cmd_palette_extract(args: argparse.Namespace) -> int:

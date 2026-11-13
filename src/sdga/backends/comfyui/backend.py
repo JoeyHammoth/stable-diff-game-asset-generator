@@ -42,6 +42,7 @@ class ComfyUIBackend:
         client: ComfyUIClient | None = None,
         tracker_factory: Callable[[str], WebSocketTracker | None] | None = None,
         client_id: str | None = None,
+        project_root: Path | None = None,
     ) -> None:
         self.config = config
         self._client = client or ComfyUIClient(config.url)
@@ -49,6 +50,10 @@ class ComfyUIBackend:
         self._jobs: dict[str, tuple[GenerationRequest, float]] = {}
         self._trackers: dict[str, WebSocketTracker] = {}
         self._tracker_factory = tracker_factory or self._default_tracker
+        # References are uploaded by content address, so two assets sharing a style anchor
+        # upload it once per process. `project_root` is only needed to read the bytes.
+        self._project_root = project_root
+        self._uploaded: dict[str, str] = {}
 
     # ------------------------------------------------------------------ seam
 
@@ -73,6 +78,7 @@ class ComfyUIBackend:
             # Idempotent: the same request never queues twice in one process.
             return self._handle(request, prompt_id)
 
+        self._upload_refs(request)
         self._client.submit(request.graph, prompt_id=prompt_id, client_id=self._client_id)
         self._jobs[prompt_id] = (request, time.monotonic())
         tracker = self._tracker_factory(prompt_id)
@@ -125,6 +131,28 @@ class ComfyUIBackend:
         return target
 
     # ------------------------------------------------------------------ internals
+
+    def _upload_refs(self, request: GenerationRequest) -> None:
+        """Upload every reference once, under its content-addressed handle.
+
+        Skipping a handle already uploaded in this process is what makes "two assets share a
+        style anchor, upload once" true; the handle is stable across processes too, because
+        it is derived from the bytes rather than from a counter.
+        """
+        if self._project_root is None:
+            return
+        for ref in request.refs:
+            if not ref.backend_handle or ref.backend_handle in self._uploaded:
+                continue
+            source = self._project_root / ref.path
+            if not source.is_file():
+                raise BackendError(
+                    "bad_output",
+                    f"{request.asset_id}: reference {ref.path} is missing from the project",
+                    remedy="restore the file, then re-plan",
+                )
+            self._client.upload_image(source, name=ref.backend_handle)
+            self._uploaded[ref.backend_handle] = ref.sha256
 
     def _handle(self, request: GenerationRequest, prompt_id: str) -> JobHandle:
         return JobHandle(

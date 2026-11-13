@@ -1,6 +1,7 @@
 # Example project
 
-A minimal project: four asset specs, one palette, and the reference images they bind.
+A minimal project covering every image kind: six asset specs (one with four candidates), one
+palette, the pinned recipes, and the reference images they bind.
 It is what `tests/test_examples.py` uses to prove that `plan` stays byte-stable, and what
 CI runs the documented `sdga plan --dry-run examples/` check against.
 
@@ -8,7 +9,9 @@ CI runs the documented `sdga plan --dry-run examples/` check against.
 examples/
 ├── sdga.toml                  # project + style + backend + gates
 ├── assets/world.yaml          # terrain tile and its normal map
-├── assets/char_ui.yaml        # sprite sheet and UI button
+├── assets/char_ui.yaml        # sprite sheet (4 candidates) and UI button
+├── assets/extras.yaml         # concept reference and UI icon
+├── recipes/                   # pinned copies of ../../recipes
 ├── palettes/example16.png     # 16-colour placeholder, 8x2 swatch grid (replace it)
 ├── concepts/cleaned/          # style anchors
 ├── style/skeletons/           # pose reference (authored, not detector output)

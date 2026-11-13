@@ -13,9 +13,11 @@ def test_plan_writes_plan_json_and_exits_zero(project: Path, capsys):
     assert main(["plan", "--project", str(project)]) == 0
 
     payload = json.loads((project / "plan.json").read_text(encoding="utf-8"))
-    assert len(payload["requests"]) == 4
+    # Four candidates of the walk sheet, plus the tile, its normal map and the button.
+    assert len(payload["requests"]) == 7
     assert payload["schema"] == 1
-    assert "planned 4 request(s)" in capsys.readouterr().out
+    assert {request["candidate"] for request in payload["requests"]} == {0, 1, 2, 3}
+    assert "planned 7 request(s)" in capsys.readouterr().out
 
 
 def test_plan_output_is_reproducible(project: Path):
@@ -81,8 +83,8 @@ def test_a_comfyui_backend_that_is_not_running_exits_as_unavailable(tmp_path: Pa
 
 
 def test_unimplemented_command_exits_as_usage_error(project: Path, capsys):
-    assert main(["review", "--project", str(project)]) == 2
-    assert "phase P3" in capsys.readouterr().err
+    assert main(["adapt", "--project", str(project)]) == 2
+    assert "phase P5" in capsys.readouterr().err
 
 
 def test_unknown_command_exits_two():

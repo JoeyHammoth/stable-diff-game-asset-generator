@@ -1,0 +1,50 @@
+schema: 1
+id: sprite_sheet_img2img
+kind: sprite_sheet
+version: 1
+graph: sprite_sheet_img2img.graph.json
+output_node: "12"
+
+# Same chain and gates as `sprite_sheet`: only how the pose reaches the sampler changes, so a
+# spec binds either path by swapping the recipe, never the spec.
+postprocess:
+  - frame_grid
+  - alpha_hard
+  - alpha_trim
+  - center_anchor
+  - palette_snap
+  - pad_to_grid
+
+gates:
+  - dimensions_exact
+  - frame_count
+  - frames_aligned
+  - palette_conformance
+  - max_unique_colors
+  - alpha_required
+  - binary_alpha
+
+# Encode the authored pose sheet and sample it at a partial denoise: the alternative to
+# ControlNet, useful when the ControlNet model is not installed.
+requires:
+  nodes:
+    - CheckpointLoaderSimple
+    - LoraLoader
+    - CLIPTextEncode
+    - KSampler
+    - VAEDecode
+    - SaveImage
+    - LoadImage
+    - VAEEncode
+  models:
+    checkpoints: ["${style.checkpoint}"]
+    loras: ["${style.loras[0].name}"]
+
+slots:
+  required:
+    - positive
+    - negative
+    - seed
+    - refs.pose.handle
+    - params.denoise
+  optional: [refs.style_anchor.handle]

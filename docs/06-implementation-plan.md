@@ -91,6 +91,18 @@ passes every gate, and `sdga validate packs/<id>` re-confirms it with the backen
 **P2 gate:** a character walk sheet, a UI button, and a normal map for the tile — all in one pack,
 all gated, all with provenance.
 
+*Met:* `examples/` declares all six image kinds and `sdga run` → `review` → `publish` →
+`validate` produces one pack with the walk sheet, the button (with margins in `engine.ui`), the
+icon, the concept, the tile and its normal map. `tests/test_p2.py` holds one test per ticket.
+
+*Live-verified:* the same project was run against ComfyUI 0.23.0 with SD1.5
+(`v1-5-pruned-emaonly`), the SD1.5 openpose ControlNet and a pixel-art LoRA, and produced that
+six-asset pack in one pass (6 accepted, 3 superseded). That run is what corrected two recipe
+defects the fake backend could not show: the concept chain never downscaled (a 512px render was
+being gated against a 64px spec), and it gated on `max_unique_colors` while deliberately not
+palette-snapping (a real render measures ~40k colours). It now gates on size and `aa_suspect`,
+recorded as `warn`.
+
 ### P3 · Run hygiene
 
 | # | Ticket | Size | ← | Acceptance |

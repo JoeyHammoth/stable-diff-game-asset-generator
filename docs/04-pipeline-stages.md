@@ -160,7 +160,7 @@ chain per asset kind. Every op is independently testable with a fixture and a go
 Chains per kind (defaults, overridable in spec):
 
 ```yaml
-concept:        [pad_to_grid]
+concept:        [downscale_box, alpha_hard, despeckle, pad_to_grid]
 terrain_tile:   [downscale_box, palette_snap, alpha_hard, pad_to_grid]
 sprite_sheet:   [frame_grid, alpha_hard, alpha_trim, center_anchor, palette_snap, pad_to_grid]
 ui_element:     [downscale_box, palette_snap, alpha_hard, ninepatch_mirror]

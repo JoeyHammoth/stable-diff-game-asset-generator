@@ -32,7 +32,7 @@ def test_a_run_generates_postprocesses_and_gates(project: Path):
 
     record = _record(outcome)
     assert record["schema"] == 1
-    assert record["recipes"] == {"terrain_tile": "3"}
+    assert record["recipes"]["terrain_tile"] == "3"
     assert record["style"]["contract_hash"].startswith("sha256:")
 
     job = record["jobs"][0]
@@ -64,8 +64,9 @@ def test_every_declared_gate_passes_on_the_output(project: Path):
     }
 
 
-def test_a_kind_without_a_recipe_is_refused_at_run_time(project: Path):
-    config = load_config(project)
+def test_a_kind_without_a_recipe_is_refused_at_run_time(tmp_path: Path):
+    make_project(tmp_path, with_recipes=False)
+    config = load_config(tmp_path)
     with pytest.raises(SpecError) as caught:
         execute_run(config, make_backend(config))
     error = caught.value

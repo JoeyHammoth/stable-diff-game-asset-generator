@@ -1,0 +1,55 @@
+schema: 1
+id: sprite_sheet
+version: 1
+graph: sprite_sheet.graph.json
+output_node: "12"
+
+# Frames are cut from the declared layout, never inferred from the width, then each frame is
+# hardened, trimmed to its content and anchored by its feet.
+postprocess:
+  - frame_grid
+  - alpha_hard
+  - alpha_trim
+  - center_anchor
+  - palette_snap
+  - pad_to_grid
+
+gates:
+  - dimensions_exact
+  - frame_count
+  - frames_aligned
+  - palette_conformance
+  - max_unique_colors
+  - alpha_required
+  - binary_alpha
+
+# The pose is an authored dance-with-pose sheet (one row of frames), not detector output:
+# the whole point of `style/skeletons/*.png` is that a human poses it once.
+requires:
+  nodes:
+    - CheckpointLoaderSimple
+    - LoraLoader
+    - CLIPTextEncode
+    - EmptyLatentImage
+    - KSampler
+    - VAEDecode
+    - SaveImage
+    - LoadImage
+    - ControlNetLoader
+    - ControlNetApplyAdvanced
+  models:
+    checkpoints: ["${style.checkpoint}"]
+    loras: ["${style.loras[0].name}"]
+    controlnet: ["${params.controlnet}"]
+
+slots:
+  required:
+    - positive
+    - negative
+    - seed
+    - width
+    - height
+    - refs.pose.handle
+    - params.controlnet
+    - params.controlnet_strength
+  optional: [refs.style_anchor.handle]
