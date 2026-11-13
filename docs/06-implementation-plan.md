@@ -91,6 +91,10 @@ passes every gate, and `sdga validate packs/<id>` re-confirms it with the backen
 **P2 gate:** a character walk sheet, a UI button, and a normal map for the tile — all in one pack,
 all gated, all with provenance.
 
+*Met:* `examples/` declares all six image kinds and `sdga run` → `review` → `publish` →
+`validate` produces one pack with the walk sheet, the button (with margins in `engine.ui`), the
+icon, the concept, the tile and its normal map. `tests/test_p2.py` holds one test per ticket.
+
 ### P3 · Run hygiene
 
 | # | Ticket | Size | ← | Acceptance |

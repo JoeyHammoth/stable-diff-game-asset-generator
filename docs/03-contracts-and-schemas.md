@@ -146,6 +146,8 @@ assets:
 | `references.*` | role must be a known role; path must exist at plan time |
 | `depends_on` | ids must exist; the graph must be acyclic (checked) |
 | `params` | merged over `defaults.params`; unknown keys passed through to `${params.*}` |
+| `candidates` | integer ≥ 1; each candidate is a separate request (own seed), exactly one is promoted |
+| `frames` / `layout` | `layout.cols * layout.rows == frames`; the produced file is the whole sheet |
 
 ---
 
@@ -304,6 +306,14 @@ a cache hit requires an identical hash **and** an identical `profile_hash`.
 ```
 
 A job with `status: rejected` keeps its `gates` so the reason is auditable.
+
+With `candidates > 1` there is one job per candidate, each carrying `candidate` and `promoted`;
+the lowest-numbered accepted candidate is promoted and the rest are `superseded`. Review
+decisions are appended to a top-level `reviews` list and mirrored onto each asset's jobs as
+`review`, so the history of who decided what, and when, survives.
+
+`run.html`'s sibling `review.html` is written next to every `run.json`: references and results
+side by side, relative paths only, no scripts.
 
 ---
 
