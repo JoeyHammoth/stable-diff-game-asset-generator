@@ -37,6 +37,16 @@ UI_QUANTUM = 8
 
 _WHITESPACE = re.compile(r"\s+")
 
+# The documented sampler defaults (docs/03 §2, `defaults.params`). A recipe may reference any
+# of them without every spec having to repeat them; a spec's own params always win.
+PARAM_DEFAULTS: dict[str, Any] = {
+    "steps": 25,
+    "cfg": 7.0,
+    "sampler": "euler_ancestral",
+    "scheduler": "karras",
+    "denoise": 1.0,
+}
+
 
 class RecipeLike(Protocol):
     """What planning needs from a recipe.
@@ -214,7 +224,7 @@ def bind_context(config: Config, spec: AssetSpec, request: GenerationRequest) ->
         "cells": {"cols": cols, "rows": rows},
         "filename_prefix": f"sdga/{spec.slug}",
         "style": config.style.style_body(),
-        "params": dict(request.params),
+        "params": {**PARAM_DEFAULTS, **dict(request.params)},
         "asset": {"id": spec.id, "kind": spec.kind.value},
         # A recipe binds a reference by role and never names a node; the handle is the
         # deterministic upload name resolved in `resolve_refs`.
@@ -319,6 +329,7 @@ def build_plan(
 
 __all__ = [
     "AUDIO_KINDS",
+    "PARAM_DEFAULTS",
     "Plan",
     "RecipeLike",
     "RecipeRegistryLike",

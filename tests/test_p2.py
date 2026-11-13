@@ -102,13 +102,14 @@ def test_frames_aligned_fails_when_one_frame_floats():
 
     result = frames_aligned(sheet, GateContext(size=(64, 32), frames=2, layout=(2, 1)))
     assert result.status == "fail"
-    assert result.value == 12  # rows 19 and 11
+    assert result.value == 8  # bottom rows 19 and 11
 
 
 def test_frame_count_rejects_a_sheet_that_does_not_match_its_layout():
-    assert frame_count(
-        Image.new("RGBA", (64, 32)), GateContext(size=(64, 32), frames=2)
-    ).status == ("pass")
+    good = frame_count(
+        Image.new("RGBA", (64, 32)), GateContext(size=(64, 32), frames=2, layout=(2, 1))
+    )
+    assert good.status == "pass"
     wrong = frame_count(
         Image.new("RGBA", (32, 32)), GateContext(size=(64, 32), frames=2, layout=(2, 1))
     )
@@ -196,7 +197,12 @@ class _CountingClient(ComfyUIClient):
 
 def test_two_assets_sharing_a_reference_upload_it_once(project: Path):
     config = load_config(project)
-    plan = build_plan(config, load_specs(config), assets=["terrain/moss_stone"])
+    plan = build_plan(
+        config,
+        load_specs(config),
+        assets=["terrain/moss_stone"],
+        recipes=load_recipes(config),
+    )
     request = plan.requests[0]
     duplicate = replace(request, asset_id="terrain/moss_stone_copy", seed=request.seed + 1)
 
@@ -227,15 +233,17 @@ def test_upload_handles_are_content_addressed_and_never_hashed(project: Path):
 
 
 def test_ninepatch_mirror_is_bitwise_symmetric():
-    image = Image.new("RGBA", (64, 16))
-    _block(image, (0, 0, 20, 8), (200, 72, 72, 255))
+    # A block inset by 4px leaves a uniform border, so the margins stay under half the edge.
+    image = Image.new("RGBA", (64, 16), (31, 34, 41, 255))
+    _block(image, (4, 4, 12, 12), (200, 72, 72, 255))
 
     mirrored = ninepatch_mirror(image, OpContext(size=(64, 16)))
     horizontal, vertical = ninepatch_margins(mirrored)
     result = symmetry_9patch(mirrored, GateContext(size=(64, 16), kind=AssetKind.UI_ELEMENT))
 
-    assert result.status == "pass"
-    assert 2 * max(horizontal, vertical) < 16 or result.value == [0, 0]
+    assert result.status == "pass", result.to_dict()
+    assert horizontal >= 4 and vertical >= 4
+    assert 2 * max(horizontal, vertical) < 16
 
 
 def test_an_asymmetric_button_fails_the_gate():
@@ -245,7 +253,7 @@ def test_an_asymmetric_button_fails_the_gate():
     assert symmetry_9patch(image, GateContext(size=(64, 16))).status == "fail"
 
 
-def test_ui_margins_reach_the_pack(project: Path, tmp_path: Path):
+def test_ui_margins_reach_the_pack(project: Path):
     config = load_config(project)
     outcome = execute_run(config, make_backend(config), assets=["ui/button_normal"])
     assert main(["publish", "--project", str(project), "--allow-unreviewed"]) == 0

@@ -99,7 +99,8 @@ def test_sprite_sheet_renders_the_whole_sheet_scaled_to_fit(project: Path):
     request = _by_id(project, "char/ranger_walk")
     # 8 cells of 32px across, 1 down -> a 256x32 sheet, doubled to 512x64.
     assert request.size == (512, 64)
-    assert request.final_size == (32, 32)
+    # `final_size` is the produced file, which for a sheet is the whole sheet.
+    assert request.final_size == (256, 32)
 
 
 def test_world_tiles_render_at_the_generation_size(project: Path):

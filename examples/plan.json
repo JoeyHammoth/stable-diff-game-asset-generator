@@ -4,8 +4,9 @@
     {
       "asset_id": "char/ranger_walk",
       "backend": "fake",
+      "candidate": 0,
       "final_size": [
-        32,
+        256,
         32
       ],
       "kind": "sprite_sheet",
@@ -13,23 +14,27 @@
       "output_node": null,
       "params": {
         "cfg": 7.5,
+        "controlnet": "controlnet_openpose.safetensors",
+        "controlnet_strength": 0.8,
         "steps": 28
       },
       "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background",
       "recipe": null,
       "refs": [
         {
+          "backend_handle": "sdga_2a5bb712cdce9718.png",
           "path": "style/skeletons/walk_8frame.png",
           "role": "pose",
           "sha256": "sha256:2a5bb712cdce9718a89a1413b08899fa74a34b30996c47842f2897160774a517"
         },
         {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
           "path": "concepts/cleaned/ranger_front.png",
           "role": "style_anchor",
           "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
         }
       ],
-      "request_id": "sha256:08bfe46bdcdfb324b02e240395c2782c16fcdffbcafdd6c4320f95455eecf46b",
+      "request_id": "sha256:11d1654e32e9f5d896a7d50a9a6509013503c2f873955c2d84a1518ae17e353c",
       "schema": 1,
       "seed": 3761125115,
       "size": [
@@ -39,8 +44,166 @@
       "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
     },
     {
+      "asset_id": "char/ranger_walk",
+      "backend": "fake",
+      "candidate": 1,
+      "final_size": [
+        256,
+        32
+      ],
+      "kind": "sprite_sheet",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": null,
+      "params": {
+        "cfg": 7.5,
+        "controlnet": "controlnet_openpose.safetensors",
+        "controlnet_strength": 0.8,
+        "steps": 28
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background",
+      "recipe": null,
+      "refs": [
+        {
+          "backend_handle": "sdga_2a5bb712cdce9718.png",
+          "path": "style/skeletons/walk_8frame.png",
+          "role": "pose",
+          "sha256": "sha256:2a5bb712cdce9718a89a1413b08899fa74a34b30996c47842f2897160774a517"
+        },
+        {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
+          "path": "concepts/cleaned/ranger_front.png",
+          "role": "style_anchor",
+          "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
+        }
+      ],
+      "request_id": "sha256:1f6682d33bf2d03f987ee3097e4b14d94e483f57308ce479f4c51d7b2485d034",
+      "schema": 1,
+      "seed": 2270998761,
+      "size": [
+        512,
+        64
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
+      "asset_id": "char/ranger_walk",
+      "backend": "fake",
+      "candidate": 2,
+      "final_size": [
+        256,
+        32
+      ],
+      "kind": "sprite_sheet",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": null,
+      "params": {
+        "cfg": 7.5,
+        "controlnet": "controlnet_openpose.safetensors",
+        "controlnet_strength": 0.8,
+        "steps": 28
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background",
+      "recipe": null,
+      "refs": [
+        {
+          "backend_handle": "sdga_2a5bb712cdce9718.png",
+          "path": "style/skeletons/walk_8frame.png",
+          "role": "pose",
+          "sha256": "sha256:2a5bb712cdce9718a89a1413b08899fa74a34b30996c47842f2897160774a517"
+        },
+        {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
+          "path": "concepts/cleaned/ranger_front.png",
+          "role": "style_anchor",
+          "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
+        }
+      ],
+      "request_id": "sha256:d238f585259d68686de68e6536f4231171871c7f1e9e1ce9a0d34473ad0a9bd2",
+      "schema": 1,
+      "seed": 3572998090,
+      "size": [
+        512,
+        64
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
+      "asset_id": "char/ranger_walk",
+      "backend": "fake",
+      "candidate": 3,
+      "final_size": [
+        256,
+        32
+      ],
+      "kind": "sprite_sheet",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": null,
+      "params": {
+        "cfg": 7.5,
+        "controlnet": "controlnet_openpose.safetensors",
+        "controlnet_strength": 0.8,
+        "steps": 28
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, full body forest ranger walking cycle, brown leather armor, green hooded cloak, side view, transparent background",
+      "recipe": null,
+      "refs": [
+        {
+          "backend_handle": "sdga_2a5bb712cdce9718.png",
+          "path": "style/skeletons/walk_8frame.png",
+          "role": "pose",
+          "sha256": "sha256:2a5bb712cdce9718a89a1413b08899fa74a34b30996c47842f2897160774a517"
+        },
+        {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
+          "path": "concepts/cleaned/ranger_front.png",
+          "role": "style_anchor",
+          "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
+        }
+      ],
+      "request_id": "sha256:81410d9c3d546696a1117ba776d91f209f102bccf453a58eca224a11765c52d6",
+      "schema": 1,
+      "seed": 3062289338,
+      "size": [
+        512,
+        64
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
+      "asset_id": "concept/ranger_portrait",
+      "backend": "fake",
+      "candidate": 0,
+      "final_size": [
+        64,
+        64
+      ],
+      "kind": "concept",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": null,
+      "params": {},
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, portrait bust of the forest ranger, front view, flat colours, readable silhouette, transparent background",
+      "recipe": null,
+      "refs": [
+        {
+          "backend_handle": "sdga_3eba7924d6fcfba5.png",
+          "path": "concepts/cleaned/ranger_front.png",
+          "role": "style_anchor",
+          "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
+        }
+      ],
+      "request_id": "sha256:3e6118e713ff2313cd0f7b074d38eb7e298f7e66d9f1fbb9a34a8a042aa409cd",
+      "schema": 1,
+      "seed": 122562750,
+      "size": [
+        512,
+        512
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
       "asset_id": "terrain/moss_stone",
       "backend": "fake",
+      "candidate": 0,
       "final_size": [
         32,
         32
@@ -161,12 +324,13 @@
       "recipe": "terrain_tile@3",
       "refs": [
         {
+          "backend_handle": "sdga_ac6efef25b6b67d8.png",
           "path": "concepts/cleaned/dungeon_floor.png",
           "role": "style_anchor",
           "sha256": "sha256:ac6efef25b6b67d8899d168ee957ec52a72b77631d176ef5ccda95eb8fc11364"
         }
       ],
-      "request_id": "sha256:ef27b07d1124e2afb2a3c26f6a6182431c648a750367edc379bbefd6f13c7697",
+      "request_id": "sha256:09dd1e1be9efd473ce151f41daaaa86431145307f392e1fed4083d64aae6ee45",
       "schema": 1,
       "seed": 1716381561,
       "size": [
@@ -178,6 +342,7 @@
     {
       "asset_id": "terrain/moss_stone_normal",
       "backend": "fake",
+      "candidate": 0,
       "final_size": [
         32,
         32
@@ -208,6 +373,7 @@
     {
       "asset_id": "ui/button_normal",
       "backend": "fake",
+      "candidate": 0,
       "final_size": [
         64,
         16
@@ -220,14 +386,42 @@
       "recipe": null,
       "refs": [
         {
+          "backend_handle": "sdga_6e9a0f2de7cb0a14.png",
           "path": "style/wireframes/button_64x16.png",
           "role": "wireframe",
           "sha256": "sha256:6e9a0f2de7cb0a149795713cc8fbba8fca95ac0e46d126e6eb55bd6be66006b3"
         }
       ],
-      "request_id": "sha256:f142c358ea1bbcdbe86caff09c48b23043d91b5aa1e7b8cce4072445eaa715ea",
+      "request_id": "sha256:fe351ddaddf64c5fa85c0bf5808898257d2bbdbc0a846fdf6c34f647efdcd431",
       "schema": 1,
       "seed": 539619845,
+      "size": [
+        512,
+        512
+      ],
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
+    },
+    {
+      "asset_id": "ui/coin_icon",
+      "backend": "fake",
+      "candidate": 0,
+      "final_size": [
+        16,
+        16
+      ],
+      "kind": "icon",
+      "negative": "photorealistic, blurry, gradient, smooth shading, 3d render, watermark, text, anti-aliasing, low quality",
+      "output_node": null,
+      "params": {
+        "cfg": 6.5,
+        "steps": 20
+      },
+      "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro, small gold coin pickup icon, empty background, thick dark outline, no text",
+      "recipe": null,
+      "refs": [],
+      "request_id": "sha256:142e815945b1cb416175734133ab7f79c946071fee94adb8606c159bca7e7ff3",
+      "schema": 1,
+      "seed": 1147031285,
       "size": [
         512,
         512

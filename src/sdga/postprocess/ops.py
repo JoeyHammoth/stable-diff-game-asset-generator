@@ -220,19 +220,26 @@ def ninepatch_margins(image: Image.Image) -> tuple[int, int]:
     raw = source.tobytes()
     width, height = source.size
 
+    stride = width * 4
+
     def row(y: int) -> bytes:
-        return raw[y * width * 4 : (y + 1) * width * 4]
+        return raw[y * stride : (y + 1) * stride]
 
     def column(x: int) -> bytes:
         return b"".join(
-            raw[offset + x * 4 : offset + (x + 1) * 4] for offset in range(0, len(raw), width * 4)
+            raw[offset + x * 4 : offset + (x + 1) * 4] for offset in range(0, len(raw), stride)
         )
 
+    # Capped at (edge - 1) // 2 so a uniform image reports the largest legal margin instead
+    # of a margin that leaves no stretchable centre (the 9-slice geometric rule).
+    vertical_cap = (height - 1) // 2
+    horizontal_cap = (width - 1) // 2
+
     vertical = 0
-    while vertical < height // 2 and row(vertical) == row(0):
+    while vertical < vertical_cap and row(vertical) == row(0):
         vertical += 1
     horizontal = 0
-    while horizontal < width // 2 and column(horizontal) == column(0):
+    while horizontal < horizontal_cap and column(horizontal) == column(0):
         horizontal += 1
     return horizontal, vertical
 
@@ -411,15 +418,22 @@ def _border_colour(image: Image.Image) -> RGB | None:
     """The most common visible colour on the outermost ring, if there is one."""
     source = image.convert("RGBA")
     width, height = source.size
+    raw = source.tobytes()
     counts: dict[RGB, int] = {}
-    points = [(x, 0) for x in range(width)] + [(x, height - 1) for x in range(width)]
-    points += [(0, y) for y in range(1, height - 1)] + [
-        (width - 1, y) for y in range(1, height - 1)
-    ]
-    for point in points:
-        r, g, b, a = source.getpixel(point)
-        if a:
-            counts[(r, g, b)] = counts.get((r, g, b), 0) + 1
+
+    def sample(x: int, y: int) -> None:
+        offset = (y * width + x) * 4
+        if raw[offset + 3]:
+            colour = (raw[offset], raw[offset + 1], raw[offset + 2])
+            counts[colour] = counts.get(colour, 0) + 1
+
+    for x in range(width):
+        sample(x, 0)
+        sample(x, height - 1)
+    for y in range(1, height - 1):
+        sample(0, y)
+        sample(width - 1, y)
+
     if not counts:
         return None
     return max(counts, key=lambda colour: (counts[colour], colour))

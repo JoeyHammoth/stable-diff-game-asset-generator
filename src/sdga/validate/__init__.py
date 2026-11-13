@@ -10,11 +10,16 @@ from .gates import (
     SKIPPED,
     GateContext,
     GateResult,
+    aa_suspect,
     evaluate,
     failed,
     frame_bottom_rows,
+    frame_count,
+    frames_aligned,
+    normal_map_valid,
     seam_ratio,
     severity,
+    symmetry_9patch,
 )
 
 __all__ = [
@@ -25,9 +30,14 @@ __all__ = [
     "SKIPPED",
     "GateContext",
     "GateResult",
+    "aa_suspect",
     "evaluate",
     "failed",
     "frame_bottom_rows",
+    "frame_count",
+    "frames_aligned",
+    "normal_map_valid",
     "seam_ratio",
     "severity",
+    "symmetry_9patch",
 ]

@@ -56,7 +56,7 @@ def record_review(
     path = run_dir / "run.json"
     if not path.is_file():
         raise SdgaError(f"no run.json in {run_dir}", remedy="pass --run <run_id>")
-    record = json.loads(path.read_text(encoding="utf-8"))
+    record: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
 
     jobs = [job for job in record.get("jobs", []) if job.get("asset_id") == asset_id]
     if not jobs:
@@ -93,9 +93,11 @@ def write_contact_sheet(config: Config, run_dir: Path, record: Mapping[str, Any]
     """
     jobs = list(record.get("jobs", []))
     rows: list[str] = []
-    for job in sorted(
-        jobs, key=lambda entry: (str(entry.get("asset_id")), entry.get("candidate", 0))
-    ):
+
+    def order(entry: Mapping[str, Any]) -> tuple[str, int]:
+        return (str(entry.get("asset_id")), int(entry.get("candidate") or 0))
+
+    for job in sorted(jobs, key=order):
         status = job.get("status")
         post = (job.get("post") or [{}])[0].get("path")
         result = (
@@ -103,15 +105,14 @@ def write_contact_sheet(config: Config, run_dir: Path, record: Mapping[str, Any]
             if post
             else "—"
         )
-        refs = (
-            "".join(
-                f'<figure><img src="{html.escape(_relative(ref.get("path"), run_dir, config.root))}" '
-                f'alt="{html.escape(str(ref.get("role")))}">'
-                f"<figcaption>{html.escape(str(ref.get('role')))}</figcaption></figure>"
-                for ref in job.get("refs", [])
+        figures: list[str] = []
+        for ref in job.get("refs", []):
+            role = html.escape(str(ref.get("role")))
+            src = html.escape(_relative(ref.get("path"), run_dir, config.root))
+            figures.append(
+                f'<figure><img src="{src}" alt="{role}"><figcaption>{role}</figcaption></figure>'
             )
-            or "<span class=missing>no references</span>"
-        )
+        refs = "".join(figures) or "<span class=missing>no references</span>"
         review = (job.get("review") or {}).get("status", "pending")
         gates = job.get("gates", [])
         gate_text = (
@@ -124,7 +125,8 @@ def write_contact_sheet(config: Config, run_dir: Path, record: Mapping[str, Any]
             f"{html.escape(str(job.get('seed')))}<br>{html.escape(gate_text)}</div></td>"
             f"<td class=refs>{refs}</td>"
             f"<td>{result}</td>"
-            f"<td><span class=status-{html.escape(str(status))}>{html.escape(str(status))}</span><br>"
+            f"<td><span class=status-{html.escape(str(status))}>"
+            f"{html.escape(str(status))}</span><br>"
             f"<span class=meta>{html.escape(review)}</span></td>"
             "</tr>"
         )
@@ -134,9 +136,11 @@ def write_contact_sheet(config: Config, run_dir: Path, record: Mapping[str, Any]
 <meta charset="utf-8">
 <title>sdga review — run {html.escape(str(record.get("run_id")))}</title>
 <style>
-  body {{ font: 14px/1.5 system-ui, sans-serif; margin: 2rem; background: #14161a; color: #e6e6e6; }}
+  body {{ font: 14px/1.5 system-ui, sans-serif; margin: 2rem;
+         background: #14161a; color: #e6e6e6; }}
   table {{ border-collapse: collapse; width: 100%; }}
-  th, td {{ border-bottom: 1px solid #2b3038; padding: 0.6rem; text-align: left; vertical-align: top; }}
+  th, td {{ border-bottom: 1px solid #2b3038; padding: 0.6rem;
+           text-align: left; vertical-align: top; }}
   img {{ image-rendering: pixelated; max-width: 220px; background: #0b0d10; }}
   td.refs {{ max-width: 380px; }}
   figure {{ display: inline-block; margin: 0 0.5rem 0 0; }}
