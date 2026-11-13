@@ -1,0 +1,38 @@
+schema: 1
+id: ui_element
+version: 1
+graph: ui_element.graph.json
+output_node: "12"
+
+# Mirroring is the op that makes a 9-slice frame stretch safely, and it is why the chain ends
+# on symmetry rather than on the snap.
+postprocess:
+  - downscale_box
+  - palette_snap
+  - alpha_hard
+  - ninepatch_mirror
+
+gates:
+  - dimensions_exact
+  - palette_conformance
+  - max_unique_colors
+  - alpha_required
+  - binary_alpha
+  - symmetry_9patch
+
+requires:
+  nodes:
+    - CheckpointLoaderSimple
+    - LoraLoader
+    - CLIPTextEncode
+    - EmptyLatentImage
+    - KSampler
+    - VAEDecode
+    - SaveImage
+  models:
+    checkpoints: ["${style.checkpoint}"]
+    loras: ["${style.loras[0].name}"]
+
+slots:
+  required: [positive, negative, seed, width, height]
+  optional: [refs.wireframe.handle]

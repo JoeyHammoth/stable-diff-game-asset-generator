@@ -1,0 +1,36 @@
+schema: 1
+id: icon
+version: 1
+graph: icon.graph.json
+output_node: "12"
+
+# Icons have no feet: `center_anchor` centres the trimmed content instead of grounding it.
+postprocess:
+  - downscale_box
+  - palette_snap
+  - alpha_hard
+  - center_anchor
+
+gates:
+  - dimensions_exact
+  - palette_conformance
+  - max_unique_colors
+  - alpha_required
+  - binary_alpha
+
+requires:
+  nodes:
+    - CheckpointLoaderSimple
+    - LoraLoader
+    - CLIPTextEncode
+    - EmptyLatentImage
+    - KSampler
+    - VAEDecode
+    - SaveImage
+  models:
+    checkpoints: ["${style.checkpoint}"]
+    loras: ["${style.loras[0].name}"]
+
+slots:
+  required: [positive, negative, seed, width, height]
+  optional: [refs.wireframe.handle]

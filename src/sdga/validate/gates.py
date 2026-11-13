@@ -223,13 +223,18 @@ def symmetry_9patch(image: Image.Image, ctx: GateContext) -> GateResult:
     symmetric = left_right and top_bottom
 
     horizontal, vertical = ninepatch_margins(source)
-    edge = min(width, height)
-    roomy = 2 * max(horizontal, vertical) < edge
+    # Each margin is checked against its own edge: a 31px horizontal margin is legal on a
+    # 64px-wide button even though the button is only 16px tall.
+    roomy = 2 * horizontal < width and 2 * vertical < height
     return GateResult(
         "symmetry_9patch",
         PASS if symmetric and roomy else FAIL,
         value=[horizontal, vertical],
-        threshold={"max_margin": (edge - 1) // 2, "symmetric": symmetric},
+        threshold={
+            "max_horizontal": (width - 1) // 2,
+            "max_vertical": (height - 1) // 2,
+            "symmetric": symmetric,
+        },
         detail="mirror-exact" if symmetric else "not mirror-symmetric",
     )
 
