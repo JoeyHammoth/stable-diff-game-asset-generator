@@ -154,6 +154,30 @@ def test_an_unknown_gate_is_caught_at_load(tmp_path: Path):
     assert "unknown gate" in str(caught.value)
 
 
+def test_the_graph_binds_for_three_different_params_sets():
+    recipe = load_recipe(TERRAIN)
+    sets = [
+        {"steps": 20, "cfg": 6.0, "sampler": "euler", "scheduler": "normal", "denoise": 0.8},
+        {
+            "steps": 30,
+            "cfg": 8.5,
+            "sampler": "dpmpp_2m",
+            "scheduler": "karras",
+            "denoise": 1.0,
+        },
+        {"steps": 12, "cfg": 4.0, "sampler": "lms", "scheduler": "exponential", "denoise": 0.35},
+    ]
+    bound = []
+    for params in sets:
+        graph = recipe.bind(_context(params=params))
+        sampler = graph["6"]["inputs"]
+        assert sampler["steps"] == params["steps"]
+        assert sampler["cfg"] == params["cfg"]
+        assert sampler["sampler_name"] == params["sampler"]
+        bound.append(json.dumps(graph, sort_keys=True))
+    assert len(set(bound)) == 3
+
+
 def test_the_output_node_must_be_a_save_node(tmp_path: Path):
     path = _copy_recipe(
         tmp_path, yaml_edit=lambda text: text.replace('output_node: "12"', 'output_node: "7"')

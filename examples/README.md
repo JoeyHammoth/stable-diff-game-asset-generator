@@ -9,7 +9,7 @@ examples/
 ├── sdga.toml                  # project + style + backend + gates
 ├── assets/world.yaml          # terrain tile and its normal map
 ├── assets/char_ui.yaml        # sprite sheet and UI button
-├── palettes/example16.gpl     # placeholder palette (replace with a licensed one)
+├── palettes/example16.png     # 16-colour placeholder, 8x2 swatch grid (replace it)
 ├── concepts/cleaned/          # style anchors
 ├── style/skeletons/           # pose reference (authored, not detector output)
 ├── style/wireframes/          # UI wireframe
@@ -29,6 +29,8 @@ Regenerate `plan.json` after changing a spec, and commit it:
 sdga plan --project examples
 ```
 
-The backend is `fake`, so anything past `plan` waits for phase P1. The reference images are
+The palette is a `.png` swatch grid rather than a `.gpl`, so the example project covers the
+image loader path (`read_palette`) as well as the text one; each opaque pixel is one colour,
+in scan order. The backend is `fake`, so anything past `plan` waits for phase P1. The reference images are
 procedural placeholders: they exist so path and hashing logic is exercised, not because they
 are good art.

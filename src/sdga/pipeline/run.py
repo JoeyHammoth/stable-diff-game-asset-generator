@@ -23,7 +23,7 @@ from .. import __version__
 from ..backends.base import GenerationBackend, JobHandle, JobReport, PollState
 from ..backends.comfyui.recipe import Recipe, RecipeRegistry, load_recipes
 from ..canonical import hash_file, pretty_json
-from ..config import Config, read_gpl
+from ..config import Config, read_palette
 from ..errors import BackendError, SdgaError
 from ..model import SCHEMA, AssetSpec, GenerationRequest
 from ..planning.plan import build_plan, grid_quantum
@@ -77,7 +77,7 @@ def gate_context(
 
 
 def palette_for(config: Config) -> tuple[tuple[int, int, int], ...]:
-    return read_gpl(config.root / config.style.palette.path, str(config.path))
+    return read_palette(config.root / config.style.palette.path, str(config.path))
 
 
 def runs_root(config: Config) -> Path:

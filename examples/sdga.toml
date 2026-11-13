@@ -13,7 +13,7 @@ name = "example"
 trigger_token = "ExampleStyle"
 grid = 32                          # final pixel grid edge
 generation_size = [512, 512]       # render size before downscale
-palette = "palettes/example16.gpl" # placeholder palette; swap for a licensed one
+palette = "palettes/example16.png" # one opaque pixel per colour; swap for a licensed one
 palette_colors = 16
 checkpoint = "sd_v1-5.safetensors"
 seed_policy = "derived"            # fixed | derived | random
@@ -34,7 +34,7 @@ strength_clip = 0.85
 
 [backend]
 # "fake" keeps this example runnable with no GPU and no ComfyUI.
-# Switch to "comfyui" once the adapter exists (phase P1) and a server is listening.
+# Switch to "comfyui" to generate against a server that is already listening.
 kind = "fake"
 url = "http://127.0.0.1:8188"
 ws_url = "ws://127.0.0.1:8188/ws"

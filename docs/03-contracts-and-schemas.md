@@ -27,7 +27,7 @@ name = "mygame"
 trigger_token = "ProjectMyGameStyle"
 grid = 32                          # final pixel grid edge
 generation_size = [512, 512]       # render size before downscale
-palette = "palettes/endesga32.gpl"
+palette = "palettes/endesga32.gpl"    # .gpl, or a .png whose distinct colours are the palette
 palette_colors = 32
 checkpoint = "sd_v1-5.safetensors"
 seed_policy = "derived"            # fixed | derived | random
@@ -70,8 +70,10 @@ audio_peak_dbfs = -3.0
 
 ### What the Style Contract hash covers
 
-Exactly `[style]` in full, plus the id+hash of every recipe the pack uses, plus the palette
-file's content hash. **Not** `[backend]`, `[pack]`, `[gates]`, `[project]`.
+Exactly `[style]` in full, plus the palette file's content hash. **Not** `[backend]`, `[pack]`,
+`[gates]`, `[project]` — and **not** recipe versions: those enter `request_hash`, so bumping a
+recipe regenerates at the same seed instead of reshuffling every asset. `run.json` records the
+recipe map separately for provenance.
 
 Rationale: changing `max_concurrency` or a gate threshold must not invalidate generated art;
 changing an anchor word or the LoRA strength must.

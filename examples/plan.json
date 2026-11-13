@@ -29,14 +29,14 @@
           "sha256": "sha256:3eba7924d6fcfba5df42443281cd4390b650ae0a3b732860c445f914aa864675"
         }
       ],
-      "request_id": "sha256:36d5ca9160dce50048171bb8b2fe24dbbe00b99e097ec728bf31f6998a24110f",
+      "request_id": "sha256:08bfe46bdcdfb324b02e240395c2782c16fcdffbcafdd6c4320f95455eecf46b",
       "schema": 1,
-      "seed": 3949935158,
+      "seed": 3761125115,
       "size": [
         512,
         64
       ],
-      "style_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4"
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
     },
     {
       "asset_id": "terrain/moss_stone",
@@ -129,7 +129,7 @@
             ],
             "sampler_name": "euler_ancestral",
             "scheduler": "karras",
-            "seed": 1773396371,
+            "seed": 1716381561,
             "steps": 25
           }
         },
@@ -166,14 +166,14 @@
           "sha256": "sha256:ac6efef25b6b67d8899d168ee957ec52a72b77631d176ef5ccda95eb8fc11364"
         }
       ],
-      "request_id": "sha256:ec5ef5a8cdb3a42f6666bdc7ab51730ec397ad4ceedc94051461cd2c7ba7bf85",
+      "request_id": "sha256:ef27b07d1124e2afb2a3c26f6a6182431c648a750367edc379bbefd6f13c7697",
       "schema": 1,
-      "seed": 1773396371,
+      "seed": 1716381561,
       "size": [
         512,
         512
       ],
-      "style_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4"
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
     },
     {
       "asset_id": "terrain/moss_stone_normal",
@@ -196,14 +196,14 @@
       "positive": "ExampleStyle, flat colors, clean pixel art, crisp outlines, limited palette, orthogonal view, 2d game art, retro",
       "recipe": null,
       "refs": [],
-      "request_id": "sha256:663b82912218823edfdae92f13cd1d6c7e9c0c10d5d9fb6272fa333477a7175b",
+      "request_id": "sha256:473b888654063a2d8c0f23949c861810cbff3360728aee0b67c1285e860b69a1",
       "schema": 1,
-      "seed": 2534056971,
+      "seed": 1585377537,
       "size": [
         512,
         512
       ],
-      "style_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4"
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
     },
     {
       "asset_id": "ui/button_normal",
@@ -225,19 +225,19 @@
           "sha256": "sha256:6e9a0f2de7cb0a149795713cc8fbba8fca95ac0e46d126e6eb55bd6be66006b3"
         }
       ],
-      "request_id": "sha256:3a9cca5704832a5955fce1bf808d9b245d38123c7db5458fa93c3f1d3254ba0f",
+      "request_id": "sha256:f142c358ea1bbcdbe86caff09c48b23043d91b5aa1e7b8cce4072445eaa715ea",
       "schema": 1,
-      "seed": 3227040654,
+      "seed": 539619845,
       "size": [
         512,
         512
       ],
-      "style_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4"
+      "style_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71"
     }
   ],
   "schema": 1,
   "style": {
-    "contract_hash": "sha256:e072d756f15663fdfc86badcddc47a009abba240251056ac707fa217186023b4",
+    "contract_hash": "sha256:3752a8033c074089c0463b7dcddd29d58fc9f8f88e33a00bad69891f36ee0a71",
     "name": "example"
   }
 }

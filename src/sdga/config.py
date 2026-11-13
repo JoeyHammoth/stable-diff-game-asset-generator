@@ -225,14 +225,21 @@ def _string_list(table: Mapping[str, Any], key: str, where: str) -> tuple[str, .
     return tuple(item.strip() for item in value if item.strip())
 
 
-def read_gpl(path: Path, where: str) -> tuple[tuple[int, int, int], ...]:
-    """Parse a GIMP palette. Only `.gpl` until phase P1 adds `.png` palettes."""
-    if path.suffix.lower() != ".gpl":
-        raise ConfigError(
-            f"unsupported palette format {path.suffix!r}",
-            location=where,
-            remedy="only GIMP .gpl palettes are supported in this build",
-        )
+def read_palette(path: Path, where: str) -> tuple[tuple[int, int, int], ...]:
+    """Read a palette: a GIMP `.gpl`, or a `.png` whose distinct colours are the entries."""
+    suffix = path.suffix.lower()
+    if suffix == ".gpl":
+        return _read_gpl(path, where)
+    if suffix == ".png":
+        return _read_png(path, where)
+    raise ConfigError(
+        f"unsupported palette format {suffix!r}",
+        location=where,
+        remedy="use a GIMP .gpl file, or a .png whose distinct colours are the palette",
+    )
+
+
+def _read_gpl(path: Path, where: str) -> tuple[tuple[int, int, int], ...]:
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
@@ -253,6 +260,35 @@ def read_gpl(path: Path, where: str) -> tuple[tuple[int, int, int], ...]:
             f"no colours found in {path.name}",
             location=where,
             remedy="a .gpl file lists 'R G B' triples, one per line",
+        )
+    return tuple(colors)
+
+
+def _read_png(path: Path, where: str) -> tuple[tuple[int, int, int], ...]:
+    """Every distinct opaque colour, in scan order: a Lospec palette image works as-is."""
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        with Image.open(path) as image:
+            raw = image.convert("RGBA").tobytes()
+    except (OSError, UnidentifiedImageError) as exc:
+        raise ConfigError(f"cannot read palette {path.name}: {exc}", location=where) from None
+
+    colors: dict[tuple[int, int, int], None] = {}
+    for offset in range(0, len(raw), 4):
+        if raw[offset + 3]:
+            colors[(raw[offset], raw[offset + 1], raw[offset + 2])] = None
+    if not colors:
+        raise ConfigError(
+            f"no colours found in {path.name}",
+            location=where,
+            remedy="a .png palette has one opaque pixel per colour",
+        )
+    if len(colors) > 256:
+        raise ConfigError(
+            f"{path.name} defines {len(colors)} distinct colours",
+            location=where,
+            remedy="a pixel-art palette holds at most 256 colours; crop the image",
         )
     return tuple(colors)
 
@@ -330,7 +366,7 @@ def load_config(project: str | Path) -> Config:
         _str(style_table, "palette", style_where, required=True), style_where, "palette"
     )
     palette_file = project_cfg.root / palette_rel
-    colors = read_gpl(palette_file, style_where)
+    colors = read_palette(palette_file, style_where)
     declared_colors = _int(style_table, "palette_colors", style_where, default=len(colors))
     if declared_colors != len(colors):
         raise ConfigError(
@@ -450,5 +486,5 @@ __all__: Sequence[str] = [
     "ProjectConfig",
     "find_config",
     "load_config",
-    "read_gpl",
+    "read_palette",
 ]

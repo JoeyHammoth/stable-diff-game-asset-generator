@@ -60,6 +60,49 @@ def test_absolute_paths_are_rejected(tmp_path: Path):
     assert "relative" in str(caught.value)
 
 
+def test_a_png_palette_uses_its_distinct_colours(tmp_path: Path):
+    from PIL import Image
+
+    toml = TOML.replace('palette = "palettes/test.gpl"', 'palette = "palettes/test.png"').replace(
+        "palette_colors = 16", "palette_colors = 3"
+    )
+    root = make_project(tmp_path, toml=toml)
+    image = Image.new("RGBA", (2, 2))
+    image.putpixel((0, 0), (31, 34, 41, 255))
+    image.putpixel((1, 0), (58, 99, 64, 255))
+    image.putpixel((0, 1), (200, 72, 72, 255))
+    image.putpixel((1, 1), (0, 0, 0, 0))
+    image.save(root / "palettes" / "test.png", format="PNG")
+
+    config = load_config(root)
+    assert config.style.palette.path == "palettes/test.png"
+    assert config.style.palette.colors == 3
+    assert config.style.palette.sha256.startswith("sha256:")
+
+
+def test_a_png_palette_with_no_opaque_colour_is_rejected(tmp_path: Path):
+    from PIL import Image
+
+    toml = TOML.replace('palette = "palettes/test.gpl"', 'palette = "palettes/empty.png"')
+    root = make_project(tmp_path, toml=toml)
+    Image.new("RGBA", (2, 2), (0, 0, 0, 0)).save(root / "palettes" / "empty.png", format="PNG")
+
+    with pytest.raises(ConfigError) as caught:
+        load_config(root)
+    assert "no colours" in str(caught.value)
+
+
+def test_an_unknown_palette_format_names_the_supported_ones(tmp_path: Path):
+    toml = TOML.replace('palette = "palettes/test.gpl"', 'palette = "palettes/test.pal"')
+    root = make_project(tmp_path, toml=toml)
+    (root / "palettes" / "test.pal").write_text("x", encoding="utf-8")
+
+    with pytest.raises(ConfigError) as caught:
+        load_config(root)
+    message = str(caught.value)
+    assert ".gpl" in message and ".png" in message
+
+
 def test_unknown_backend_kind_is_rejected(tmp_path: Path):
     broken = TOML.replace('kind = "fake"', 'kind = "midjourney"')
     make_project(tmp_path, toml=broken)

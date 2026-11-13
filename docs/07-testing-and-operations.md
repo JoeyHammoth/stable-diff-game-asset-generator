@@ -133,8 +133,16 @@ Two properties make CI meaningful:
 - **The determinism step is a real diff**, not a hash print. If `plan.json` or a packed artifact
   changes, the build fails and shows what changed.
 
-Nightly (optional, self-hosted GPU runner): one real generation per asset kind, then
-`sdga validate`. This is the only place model/node drift is observed before a human hits it.
+`.github/workflows/live.yml` is the other half: a nightly (and manually triggerable) job on a
+`[self-hosted, gpu]` runner that runs the opt-in smoke test against a ComfyUI that is already
+listening. It reads three repository secrets — `SDGA_COMFY_URL`, `SDGA_CKPT`, `SDGA_LORA` — and
+it is the only place model or node drift is observed before a human hits it. Run the same test
+by hand with:
+
+```
+SDGA_COMFY_URL=http://127.0.0.1:8188 SDGA_CKPT=sd_v1-5.safetensors \
+SDGA_LORA=my_game_style.safetensors pytest tests/test_live_comfyui.py -m gpu
+```
 
 ---
 

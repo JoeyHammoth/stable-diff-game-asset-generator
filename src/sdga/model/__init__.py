@@ -99,10 +99,11 @@ class LoraRef:
 class StyleContract:
     """Everything that must be identical across a pack, reduced to a content hash.
 
-    The hash covers `[style]` in full, the palette file's content hash, and (from phase P1)
-    the id+hash of every recipe the pack uses. It deliberately excludes `[backend]`,
-    `[pack]`, `[gates]` and `[project]`: changing `max_concurrency` must not invalidate art;
-    changing an anchor word must.
+    The hash covers `[style]` in full and the palette file's content hash. Recipe versions are
+    deliberately absent: they ride in `GenerationRequest.recipe`, so bumping a recipe changes
+    `request_hash` and forces regeneration without reshuffling seeds. `[backend]`, `[pack]`,
+    `[gates]` and `[project]` are excluded too: changing `max_concurrency` must not invalidate
+    art; changing an anchor word must.
     """
 
     name: str
@@ -133,11 +134,9 @@ class StyleContract:
 
     @property
     def contract_hash(self) -> str:
-        return self.hash_with_recipes({})
-
-    def hash_with_recipes(self, recipes: Mapping[str, str]) -> str:
-        """Adds recipe id -> version. Used from phase P1, once recipes exist."""
-        return hash_obj({"style": self.style_body(), "recipes": dict(sorted(recipes.items()))})
+        # `recipes` stays in the body, always empty: recipe versions belong to
+        # `request_hash`, and dropping the key now would reshuffle every existing seed.
+        return hash_obj({"style": self.style_body(), "recipes": {}})
 
 
 @dataclass(frozen=True)

@@ -26,6 +26,12 @@ def _solid(size: tuple[int, int], colour: tuple[int, int, int, int] = (10, 10, 1
     return Image.new("RGBA", size, colour)
 
 
+def _pixels(image: Image.Image) -> list[tuple[int, ...]]:
+    """RGBA tuples in scan order, read from the raw buffer (getdata() is deprecated)."""
+    raw = image.convert("RGBA").tobytes()
+    return [tuple(raw[offset : offset + 4]) for offset in range(0, len(raw), 4)]
+
+
 def test_downscale_box_lands_on_the_target_size():
     assert downscale_box(_solid((512, 512)), OpContext(size=(32, 32))).size == (32, 32)
 
@@ -44,7 +50,7 @@ def test_downscale_nearest_keeps_hard_edges():
 
 def test_palette_snap_emits_only_palette_colours():
     out = snap_to_palette(_image((2, 1), [(10, 10, 10, 255), (240, 10, 10, 255)]), PALETTE)
-    tinted = {pixel[:3] for pixel in out.getdata()}
+    tinted = {pixel[:3] for pixel in _pixels(out)}
     assert tinted <= set(PALETTE)
 
 
@@ -54,7 +60,7 @@ def test_palette_snap_is_idempotent():
     )
     once = snap_to_palette(source, PALETTE)
     twice = snap_to_palette(once, PALETTE)
-    assert list(once.getdata()) == list(twice.getdata())
+    assert _pixels(once) == _pixels(twice)
 
 
 def test_palette_snap_preserves_alpha():
@@ -72,7 +78,7 @@ def test_alpha_hard_thresholds_at_128():
     out = alpha_hard(
         _image((3, 1), [(0, 0, 0, 127), (0, 0, 0, 128), (0, 0, 0, 200)]), OpContext(size=(3, 1))
     )
-    assert [pixel[3] for pixel in out.getdata()] == [0, 255, 255]
+    assert [pixel[3] for pixel in _pixels(out)] == [0, 255, 255]
 
 
 def test_pad_to_grid_pads_with_transparency():
@@ -93,7 +99,7 @@ def test_a_chain_runs_in_declared_order():
         image, ["downscale_box", "palette_snap", "alpha_hard", "pad_to_grid"], context
     )
     assert out.size == (32, 32)
-    assert {pixel[:3] for pixel in out.getdata()} <= set(PALETTE)
+    assert {pixel[:3] for pixel in _pixels(out)} <= set(PALETTE)
 
 
 def test_chain_order_is_observable():

@@ -144,9 +144,7 @@ def run(
         )
 
     if not requirements:
-        checks.append(
-            Check("recipes", SKIPPED, "no recipes declared yet (recipe checking lands in P1)")
-        )
+        checks.append(Check("recipes", SKIPPED, "no recipes loaded for this project"))
 
     return Report(checks=tuple(checks), profile=profile)
 

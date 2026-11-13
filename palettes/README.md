@@ -1,6 +1,7 @@
 # Palettes
 
-Shared, licensed palettes (`.gpl`). A project usually keeps its own palette beside its
+Shared, licensed palettes (`.gpl`, or a `.png` swatch image, one opaque pixel per colour).
+A project usually keeps its own palette beside its
 `sdga.toml`; this directory is for palettes several projects share.
 
 Two rules, both enforced by gates rather than goodwill:
