@@ -25,11 +25,21 @@ from ..backends.comfyui.recipe import Recipe, RecipeRegistry, load_recipes
 from ..canonical import hash_file, pretty_json
 from ..config import Config, read_palette
 from ..errors import BackendError, SdgaError
-from ..model import SCHEMA, AssetSpec, GenerationRequest
-from ..planning.plan import build_plan, grid_quantum
-from ..postprocess import OpContext, apply_chain
+from ..model import SCHEMA, AssetKind, AssetSpec, GenerationRequest
+from ..planning.plan import build_plan, final_size, grid_quantum
+from ..postprocess import OpContext, apply_chain, ninepatch_margins
+from ..review import write_contact_sheet
 from ..specs import load_specs
 from ..validate import DEFAULT_GATES, GateContext, evaluate, failed, severity
+
+# Icons have no feet: their content is centred rather than grounded.
+CENTERED_KINDS = frozenset({AssetKind.ICON})
+MARGIN_KINDS = frozenset({AssetKind.UI_ELEMENT, AssetKind.ICON})
+
+ACCEPTED = "accepted"
+REJECTED = "rejected"
+FAILED = "failed"
+SUPERSEDED = "superseded"
 
 
 def utc_now() -> str:
@@ -49,6 +59,7 @@ class RunOutcome:
     accepted: int
     rejected: int
     failed: int
+    superseded: int = 0
 
 
 def gate_names(recipe: Recipe | None, spec: AssetSpec) -> list[str]:
@@ -68,11 +79,31 @@ def gate_context(
     config: Config, spec: AssetSpec, palette: tuple[tuple[int, int, int], ...]
 ) -> GateContext:
     return GateContext(
-        size=spec.size,
+        size=final_size(spec),
         quantum=grid_quantum(spec.kind, config.style.grid),
         palette=palette,
         thresholds=config.gates.thresholds,
         kind=spec.kind,
+        frames=spec.frames or 1,
+        layout=spec.layout or (1, 1),
+    )
+
+
+def op_context(
+    config: Config, spec: AssetSpec, palette: tuple[tuple[int, int, int], ...]
+) -> OpContext:
+    """One resolved context per asset: ops never guess a size, anchor, or strength."""
+    return OpContext(
+        size=final_size(spec),
+        palette=palette,
+        grid=grid_quantum(spec.kind, config.style.grid),
+        frames=spec.frames or 1,
+        layout=spec.layout or (1, 1),
+        anchor="center" if spec.kind in CENTERED_KINDS else "feet",
+        strength=float(spec.params.get("height_strength", 2.0)),
+        flip_g=bool(spec.params.get("flip_g", False)),
+        min_area=int(spec.params.get("min_area", 2)),
+        tolerance=int(spec.params.get("bg_tolerance", 24)),
     )
 
 
@@ -149,10 +180,15 @@ def execute_job(
     record: dict[str, Any] = {
         "asset_id": request.asset_id,
         "kind": request.kind.value,
+        "candidate": request.candidate,
         "recipe": request.recipe,
         "request_hash": request.request_hash,
         "seed": request.seed,
-        "status": "failed",
+        "frames": spec.frames or 1,
+        "layout": list(spec.layout) if spec.layout else None,
+        "params": dict(request.params),
+        "refs": [{"role": ref.role.value, "path": ref.path} for ref in request.refs],
+        "status": FAILED,
     }
     started = time.monotonic()
 
@@ -168,7 +204,8 @@ def execute_job(
         if not report.artifacts:
             raise BackendError("bad_output", f"{request.asset_id}: backend returned no artifact")
 
-        raw_path = backend.fetch(report.artifacts[0], run_dir / "raw" / f"{spec.slug}.png")
+        name = spec.slug if max(1, spec.candidates) == 1 else f"{spec.slug}__c{request.candidate}"
+        raw_path = backend.fetch(report.artifacts[0], run_dir / "raw" / f"{name}.png")
         record["raw"] = [{"path": _relative(raw_path, config.root), "sha256": hash_file(raw_path)}]
 
         # Verify it is decodable before spending time on the chain: a corrupt fetch is a
@@ -178,13 +215,8 @@ def execute_job(
             image = opened.convert("RGBA")
 
         chain = list(recipe.postprocess) if recipe is not None else []
-        context = OpContext(
-            size=spec.size,
-            palette=palette,
-            grid=grid_quantum(spec.kind, config.style.grid),
-        )
-        processed = apply_chain(image, chain, context)
-        post_path = run_dir / "post" / f"{spec.slug}.png"
+        processed = apply_chain(image, chain, op_context(config, spec, palette))
+        post_path = run_dir / "post" / f"{name}.png"
         processed.save(post_path, format="PNG")
 
         record["post"] = [
@@ -196,10 +228,13 @@ def execute_job(
             }
         ]
         record["postprocess"] = chain
+        if spec.kind in MARGIN_KINDS:
+            # Recorded, not guessed: the pack and the gate both read these margins.
+            record["ui"] = {"margins": list(ninepatch_margins(processed))}
 
         results = evaluate(gate_names(recipe, spec), processed, gate_context(config, spec, palette))
         record["gates"] = [result.to_dict() for result in results]
-        record["status"] = "rejected" if failed(results, spec.gates) else "accepted"
+        record["status"] = REJECTED if failed(results, spec.gates) else ACCEPTED
 
     except BackendError as exc:
         record["error"] = {
@@ -207,13 +242,41 @@ def execute_job(
             "detail": exc.detail,
             "payload": exc.payload,
         }
-        record["status"] = "failed"
-    except OSError as exc:
-        record["error"] = {"kind": "bad_output", "detail": f"unreadable artifact: {exc}"}
-        record["status"] = "failed"
+        record["status"] = FAILED
+    except (OSError, ValueError) as exc:
+        # A decode failure or an op that cannot apply (an empty frame, say) is a bad
+        # artifact for this asset, never a crash that takes the whole run down.
+        record["error"] = {"kind": "bad_output", "detail": f"postprocess failed: {exc}"}
+        record["status"] = FAILED
 
     record["timings"] = {"total_s": round(time.monotonic() - started, 3)}
     return record
+
+
+def promote(jobs: list[dict[str, Any]]) -> None:
+    """Keep exactly one accepted candidate per asset; the rest are `superseded`.
+
+    Deterministic: the lowest candidate index wins, because "best" is a human judgement that
+    review exists for, not something a gate can rank.
+    """
+    by_asset: dict[str, list[dict[str, Any]]] = {}
+    for job in jobs:
+        by_asset.setdefault(str(job["asset_id"]), []).append(job)
+
+    for group in by_asset.values():
+        if len(group) < 2:
+            for job in group:
+                job["promoted"] = job["status"] == ACCEPTED
+            continue
+        accepted = [job for job in group if job["status"] == ACCEPTED]
+        winner = min(accepted, key=lambda job: int(job.get("candidate", 0))) if accepted else None
+        for job in group:
+            if job is winner:
+                job["promoted"] = True
+            else:
+                job["promoted"] = False
+                if job["status"] == ACCEPTED:
+                    job["status"] = SUPERSEDED
 
 
 def execute_run(
@@ -255,12 +318,14 @@ def execute_run(
         )
         for request in plan.requests
     ]
+    promote(jobs)
     finished = utc_now()
 
-    accepted = sum(1 for job in jobs if job["status"] == "accepted")
-    rejected = sum(1 for job in jobs if job["status"] == "rejected")
-    failed_count = sum(1 for job in jobs if job["status"] == "failed")
-    if jobs and accepted == len(jobs):
+    accepted = sum(1 for job in jobs if job["status"] == ACCEPTED)
+    rejected = sum(1 for job in jobs if job["status"] == REJECTED)
+    failed_count = sum(1 for job in jobs if job["status"] == FAILED)
+    superseded = sum(1 for job in jobs if job["status"] == SUPERSEDED)
+    if jobs and accepted >= 1 and rejected == 0 and failed_count == 0:
         status = "complete"
     elif accepted == 0:
         status = "failed"
@@ -287,20 +352,28 @@ def execute_run(
         },
         "profile": profile.to_dict(),
         "recipes": registry.versions,
+        "reviews": [],
         "jobs": jobs,
     }
+    write_contact_sheet(config, run_dir, record)
     (run_dir / "run.json").write_text(pretty_json(record), encoding="utf-8")
-    return RunOutcome(run_id, run_dir, status, accepted, rejected, failed_count)
+    return RunOutcome(run_id, run_dir, status, accepted, rejected, failed_count, superseded)
 
 
 __all__ = [
+    "ACCEPTED",
+    "FAILED",
+    "REJECTED",
+    "SUPERSEDED",
     "RunOutcome",
     "execute_job",
     "execute_run",
     "gate_context",
     "gate_names",
     "new_run_id",
+    "op_context",
     "palette_for",
+    "promote",
     "run_dir_for",
     "runs_root",
     "utc_now",

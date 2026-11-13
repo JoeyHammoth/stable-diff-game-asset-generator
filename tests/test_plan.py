@@ -145,7 +145,18 @@ def test_references_are_hashed_by_content(project: Path):
     ref = request.refs[0]
     assert ref.role.value == "style_anchor"
     assert ref.sha256.startswith("sha256:")
-    assert ref.backend_handle is None
+    # T17: the handle is content-addressed, so identical bytes upload once under one name.
+    assert ref.backend_handle is not None
+    assert ref.backend_handle.startswith("sdga_")
+
+
+def test_reference_handles_follow_the_content(project: Path):
+    request = _by_id(project, "terrain/moss_stone")
+    handle = request.refs[0].backend_handle
+
+    (project / "concepts/cleaned/floor.png").write_bytes(b"different bytes")
+    changed = _by_id(project, "terrain/moss_stone").refs[0].backend_handle
+    assert changed != handle
 
 
 def test_request_hash_ignores_volatile_upload_handles(project: Path):

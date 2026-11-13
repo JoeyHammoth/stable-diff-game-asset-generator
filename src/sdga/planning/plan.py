@@ -7,6 +7,7 @@ depends on that property.
 
 from __future__ import annotations
 
+import hashlib
 import re
 import secrets
 from collections.abc import Mapping, Sequence
@@ -64,6 +65,8 @@ class RecipeLike(Protocol):
 class RecipeRegistryLike(Protocol):
     def for_kind(self, kind: AssetKind) -> RecipeLike | None: ...
 
+    def get(self, recipe_id: str) -> RecipeLike | None: ...
+
 
 @dataclass(frozen=True)
 class Plan:
@@ -95,6 +98,14 @@ def _normalise(text: str) -> str:
 def grid_quantum(kind: AssetKind, grid: int) -> int:
     """The divisor a final size must satisfy. UI is screen-space, world art is grid-locked."""
     return min(grid, UI_QUANTUM) if kind in SCREEN_SPACE_KINDS else grid
+
+
+def final_size(spec: AssetSpec) -> tuple[int, int]:
+    """The size of the produced file. For a sheet that is the whole sheet, not one cell."""
+    if spec.kind is AssetKind.SPRITE_SHEET and spec.frames and spec.layout:
+        cols, rows = spec.layout
+        return (spec.size[0] * cols, spec.size[1] * rows)
+    return spec.size
 
 
 def assemble_positive(style: StyleContract, spec: AssetSpec) -> str:
@@ -129,7 +140,7 @@ def render_size(style: StyleContract, spec: AssetSpec) -> tuple[int, int] | None
     return style.generation_size
 
 
-def resolve_seed(style: StyleContract, spec: AssetSpec) -> int:
+def resolve_seed(style: StyleContract, spec: AssetSpec, candidate_index: int = 0) -> int:
     if style.seed_policy is SeedPolicy.FIXED:
         if spec.seed is None:
             raise SpecError(
@@ -137,11 +148,23 @@ def resolve_seed(style: StyleContract, spec: AssetSpec) -> int:
                 location=spec.source.location() if spec.source else None,
                 remedy="add `seed: <int>` to the spec, or use seed_policy = 'derived'",
             )
-        return spec.seed
+        return spec.seed + candidate_index
     if style.seed_policy is SeedPolicy.RANDOM:
         # Generated once and recorded in plan.json; intentional non-determinism.
         return secrets.randbits(32)
-    return derive_seed(spec.id, style.contract_hash)
+    return derive_seed(spec.id, style.contract_hash, candidate_index)
+
+
+def upload_handle(sha256: str, path: str) -> str:
+    """A content-addressed upload name: same bytes, same name, so an upload happens once.
+
+    It is derived rather than random so the bound graph is identical on every machine; the
+    handle is excluded from `request_hash`, which is what keeps uploads from invalidating
+    cached art.
+    """
+    digest = sha256.split(":", 1)[-1][:16]
+    suffix = path.rsplit(".", 1)[-1].lower() if "." in path else "png"
+    return f"sdga_{digest}.{suffix}"
 
 
 def resolve_refs(config: Config, spec: AssetSpec) -> tuple[ResolvedRef, ...]:
@@ -149,11 +172,13 @@ def resolve_refs(config: Config, spec: AssetSpec) -> tuple[ResolvedRef, ...]:
     refs: list[ResolvedRef] = []
     for role_name, rel in sorted(spec.references.items()):
         role = ReferenceRole(role_name)
+        sha256 = hash_file(config.root / rel)
         refs.append(
             ResolvedRef(
                 role=role,
                 path=rel,
-                sha256=hash_file(config.root / rel),
+                sha256=sha256,
+                backend_handle=upload_handle(sha256, rel),
             )
         )
     return tuple(refs)
@@ -177,19 +202,52 @@ def _check_quantum(spec: AssetSpec, style: StyleContract) -> None:
 
 def bind_context(config: Config, spec: AssetSpec, request: GenerationRequest) -> dict[str, Any]:
     """The flat namespace a recipe's `${slots}` resolve against (docs/03 §3, binder rule 2)."""
+    cols, rows = spec.layout or (1, 1)
     return {
         "positive": request.positive,
         "negative": request.negative,
         "seed": request.seed,
         "width": None if request.size is None else request.size[0],
         "height": None if request.size is None else request.size[1],
-        "final_width": spec.size[0],
-        "final_height": spec.size[1],
+        "final_width": final_size(spec)[0],
+        "final_height": final_size(spec)[1],
+        "frames": spec.frames or 1,
+        "cells": {"cols": cols, "rows": rows},
         "filename_prefix": f"sdga/{spec.slug}",
         "style": config.style.style_body(),
         "params": dict(request.params),
         "asset": {"id": spec.id, "kind": spec.kind.value},
+        # A recipe binds a reference by role and never names a node; the handle is the
+        # deterministic upload name resolved in `resolve_refs`.
+        "refs": {
+            ref.role.value: {
+                "path": ref.path,
+                "sha256": ref.sha256,
+                "handle": ref.backend_handle,
+            }
+            for ref in request.refs
+        },
     }
+
+
+def _select_recipe(
+    kind: AssetKind,
+    recipes: RecipeRegistryLike | None,
+    recipe_ids: Mapping[str, str] | None,
+) -> RecipeLike | None:
+    if recipes is None:
+        return None
+    if recipe_ids:
+        chosen = recipe_ids.get(kind.value) or recipe_ids.get(kind.value, "")
+        if chosen:
+            recipe = recipes.get(chosen)
+            if recipe is None:
+                raise SpecError(
+                    f"no recipe {chosen!r} for kind {kind.value!r}",
+                    remedy="check the recipe id, or omit the override to use the default recipe",
+                )
+            return recipe
+    return recipes.for_kind(kind)
 
 
 def build_plan(
@@ -199,6 +257,7 @@ def build_plan(
     assets: Sequence[str] | None = None,
     recipes: RecipeRegistryLike | None = None,
     require_recipes: bool = False,
+    recipe_ids: Mapping[str, str] | None = None,
 ) -> Plan:
     style = config.style
     selected = list(specs)
@@ -218,7 +277,7 @@ def build_plan(
     requests: list[GenerationRequest] = []
     for spec in selected:
         _check_quantum(spec, style)
-        recipe = recipes.for_kind(spec.kind) if recipes is not None else None
+        recipe = _select_recipe(spec.kind, recipes, recipe_ids)
         if recipe is None and require_recipes:
             raise SpecError(
                 f"{spec.id}: no recipe for kind {spec.kind.value!r}",
@@ -226,27 +285,30 @@ def build_plan(
                 remedy=f"add {config.project.recipes_dir}/{spec.kind.value}.yaml",
             )
 
-        request = GenerationRequest(
-            asset_id=spec.id,
-            kind=spec.kind,
-            backend=config.backend.kind,
-            positive=assemble_positive(style, spec),
-            negative=assemble_negative(style, spec),
-            seed=resolve_seed(style, spec),
-            style_hash=style_hash,
-            refs=resolve_refs(config, spec),
-            params=dict(spec.params),
-            size=render_size(style, spec),
-            final_size=spec.size,
-        )
-        if recipe is not None:
-            request = replace(
-                request,
-                recipe=recipe.key,
-                output_node=recipe.output_node,
-                graph=recipe.bind(bind_context(config, spec, request)),
+        refs = resolve_refs(config, spec)
+        for candidate in range(max(1, spec.candidates)):
+            request = GenerationRequest(
+                asset_id=spec.id,
+                kind=spec.kind,
+                backend=config.backend.kind,
+                positive=assemble_positive(style, spec),
+                negative=assemble_negative(style, spec),
+                seed=resolve_seed(style, spec, candidate),
+                style_hash=style_hash,
+                refs=refs,
+                params=dict(spec.params),
+                size=render_size(style, spec),
+                final_size=final_size(spec),
+                candidate=candidate,
             )
-        requests.append(request)
+            if recipe is not None:
+                request = replace(
+                    request,
+                    recipe=recipe.key,
+                    output_node=recipe.output_node,
+                    graph=recipe.bind(bind_context(config, spec, request)),
+                )
+            requests.append(request)
 
     return Plan(
         project=config.project.name,
@@ -265,8 +327,10 @@ __all__ = [
     "assemble_positive",
     "bind_context",
     "build_plan",
+    "final_size",
     "grid_quantum",
     "render_size",
     "resolve_refs",
     "resolve_seed",
+    "upload_handle",
 ]

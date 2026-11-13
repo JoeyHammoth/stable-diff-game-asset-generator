@@ -81,8 +81,8 @@ def test_a_comfyui_backend_that_is_not_running_exits_as_unavailable(tmp_path: Pa
 
 
 def test_unimplemented_command_exits_as_usage_error(project: Path, capsys):
-    assert main(["review", "--project", str(project)]) == 2
-    assert "phase P3" in capsys.readouterr().err
+    assert main(["adapt", "--project", str(project)]) == 2
+    assert "phase P5" in capsys.readouterr().err
 
 
 def test_unknown_command_exits_two():

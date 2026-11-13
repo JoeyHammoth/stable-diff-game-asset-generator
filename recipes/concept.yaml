@@ -1,0 +1,33 @@
+schema: 1
+id: concept
+version: 1
+graph: concept.graph.json
+output_node: "12"
+
+# Concept art is a reference the rest of the project is measured against, so it is cleaned
+# rather than locked to the palette: `bg_remove` stays available but off, because cutting the
+# background out of a generated asset would hide a prompt that failed to ask for transparency.
+postprocess:
+  - alpha_hard
+  - despeckle
+  - pad_to_grid
+
+gates:
+  - max_unique_colors
+
+requires:
+  nodes:
+    - CheckpointLoaderSimple
+    - LoraLoader
+    - CLIPTextEncode
+    - EmptyLatentImage
+    - KSampler
+    - VAEDecode
+    - SaveImage
+  models:
+    checkpoints: ["${style.checkpoint}"]
+    loras: ["${style.loras[0].name}"]
+
+slots:
+  required: [positive, negative, seed, width, height]
+  optional: [refs.style_anchor.handle]

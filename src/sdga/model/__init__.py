@@ -219,6 +219,7 @@ class GenerationRequest:
     recipe: str | None = None
     output_node: str | None = None
     graph: Mapping[str, Any] | None = None
+    candidate: int = 0
 
     def _body(self, *, include_graph: bool, include_id: bool) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -253,7 +254,11 @@ class GenerationRequest:
         return hash_obj(self._body(include_graph=True, include_id=False))
 
     def to_dict(self) -> dict[str, Any]:
-        return self._body(include_graph=True, include_id=True)
+        # `candidate` is recorded for review but stays out of every hash: the seed already
+        # distinguishes candidates, and two runs of candidate 0 must keep the same key.
+        body = self._body(include_graph=True, include_id=True)
+        body["candidate"] = self.candidate
+        return body
 
 
 def derive_seed(asset_id: str, style_hash: str, candidate_index: int = 0) -> int:

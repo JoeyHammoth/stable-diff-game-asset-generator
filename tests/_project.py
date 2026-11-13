@@ -101,6 +101,7 @@ assets:
     references:
       style_anchor: concepts/cleaned/ranger.png
       pose: style/skeletons/walk_8.png
+    params: { steps: 28, cfg: 7.5, controlnet: controlnet_openpose.safetensors, controlnet_strength: 0.8 }
 
   - id: ui/button_normal
     kind: ui_element

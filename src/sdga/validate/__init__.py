@@ -12,6 +12,7 @@ from .gates import (
     GateResult,
     evaluate,
     failed,
+    frame_bottom_rows,
     seam_ratio,
     severity,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "GateResult",
     "evaluate",
     "failed",
+    "frame_bottom_rows",
     "seam_ratio",
     "severity",
 ]
