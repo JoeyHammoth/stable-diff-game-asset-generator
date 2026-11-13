@@ -13,7 +13,7 @@ from .ops import (
     pad_to_grid,
     palette_snap,
 )
-from .palette import nearest_palette_index, rgb_to_oklab, snap_to_palette
+from .palette import extract_colours, nearest_palette_index, rgb_to_oklab, snap_to_palette
 
 __all__ = [
     "OPS",
@@ -23,6 +23,7 @@ __all__ = [
     "apply_chain",
     "downscale_box",
     "downscale_nearest",
+    "extract_colours",
     "nearest_palette_index",
     "pad_to_grid",
     "palette_snap",

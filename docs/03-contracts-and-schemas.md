@@ -377,6 +377,8 @@ sdga run   [--asset ID…] [--dry-run] [--resume] [--force] [--candidates N]
 sdga validate [PACK|RUN]        # re-run gates over existing files; no backend needed
 sdga review  [--asset ID] [--approve|--reject] [--note]
 sdga publish [--run ID]         # write packs/<pack_id>/
+sdga palette extract IMAGE [--colors N] [--out PATH] [--force]
+                                # author the palette file from an image; .gpl or .png
 sdga adapt   --engine godot     # optional: emit engine hints from a pack
 ```
 
@@ -385,6 +387,14 @@ Exit codes: `0` success, `1` gate/review failure, `2` usage error, `3` backend u
 
 `--dry-run` writes `plan.json` and prints the fully bound graph for the first asset. This is the
 primary way to develop a recipe: it needs no GPU and no ComfyUI.
+
+`palette extract` is the one command that *writes* style data. It samples an authored image down to
+at most `--colors` colours (default: `[style] palette_colors`), writes `.gpl` or `.png` according to
+`--out`, and refuses to replace an existing file without `--force` because every seed is derived
+from the palette bytes. It is a one-time authoring step, **never part of the asset chain**: the
+pipeline only ever snaps to the palette file that is checked in. Extraction is deterministic
+(grouping in OKLab, weighted by pixel count, ordered by count then RGB) and only ever returns
+colours present in the image, so it cannot invent a colour the art does not contain.
 
 ---
 

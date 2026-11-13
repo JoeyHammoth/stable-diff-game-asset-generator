@@ -25,6 +25,7 @@ from .errors import (
     UsageError,
 )
 from .pack import publish
+from .palettes import extract_palette, write_palette
 from .pipeline import execute_run, run_dir_for, verify_pack, verify_run
 from .planning import build_plan
 from .specs import load_specs
@@ -114,6 +115,35 @@ def build_parser() -> argparse.ArgumentParser:
     validate_cmd.add_argument("--run", dest="run_id", default=None, help="validate a run instead")
     validate_cmd.add_argument("--json", action="store_true", help="emit rows as JSON")
     validate_cmd.set_defaults(func=cmd_validate)
+
+    palette_cmd = sub.add_parser("palette", help="author the project palette (a one-time step)")
+    palette_sub = palette_cmd.add_subparsers(
+        dest="palette_command", required=True, metavar="COMMAND"
+    )
+    extract_cmd = palette_sub.add_parser(
+        "extract",
+        parents=[common],
+        help="sample an authored image into the project's palette file",
+    )
+    extract_cmd.add_argument("image", metavar="IMAGE", help="concept or reference image to sample")
+    extract_cmd.add_argument(
+        "--colors",
+        type=int,
+        default=None,
+        metavar="N",
+        help="how many colours to sample (default: [style] palette_colors)",
+    )
+    extract_cmd.add_argument(
+        "--out",
+        metavar="PATH",
+        help="write here, .gpl or .png (default: [style] palette)",
+    )
+    extract_cmd.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite an existing palette file (changes every seed)",
+    )
+    extract_cmd.set_defaults(func=cmd_palette_extract)
 
     for name, (phase, description) in STUBS.items():
         stub = sub.add_parser(name, parents=[common], help=f"{description} (phase {phase})")
@@ -233,6 +263,44 @@ def cmd_validate(args: argparse.Namespace) -> int:
             print(f"{row['asset_id']:<30} {row['gate']:<22} {row['status']:<7} {row.get('value')}")
         print("ok" if ok else "FAILED")
     return EXIT_OK if ok else EXIT_FAILURE
+
+
+def cmd_palette_extract(args: argparse.Namespace) -> int:
+    config = load_config(args.project)
+
+    source = Path(args.image)
+    if not source.is_absolute() and not source.exists():
+        source = config.root / args.image
+    if not source.is_file():
+        raise UsageError(
+            f"no image at {args.image}",
+            remedy="pass a path to a concept or reference image, e.g. concepts/cleaned/floor.png",
+        )
+
+    wanted = args.colors if args.colors is not None else config.style.palette.colors
+    if not 1 <= wanted <= 256:
+        raise UsageError(f"--colors must be between 1 and 256, got {wanted}")
+
+    target = Path(args.out) if args.out else config.root / config.style.palette.path
+    if target.exists() and not args.force:
+        raise UsageError(
+            f"{_display(target, config.root)} already exists",
+            remedy="pass --force to replace it; every seed is derived from the palette bytes",
+        )
+
+    colours = extract_palette(source, wanted)
+    write_palette(target, colours, name=target.stem, source=source.name)
+
+    print(f"extracted {len(colours)} colour(s) from {source.name}")
+    print(f"wrote {_display(target, config.root)}")
+    declared = config.style.palette.colors
+    if len(colours) != declared:
+        print(
+            f"note: [style] palette_colors is {declared}; set it to {len(colours)}, "
+            f"or re-run with --colors {declared}"
+        )
+    print("review the palette, then run `sdga plan` and commit plan.json: seeds change")
+    return EXIT_OK
 
 
 def cmd_stub(args: argparse.Namespace) -> int:

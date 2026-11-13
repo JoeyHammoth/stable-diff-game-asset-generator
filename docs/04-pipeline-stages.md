@@ -180,6 +180,11 @@ normal_map:     [downscale_box, depth_to_normal, pad_to_grid]
    transparent edges.
 5. Idempotent by construction: snapping a snapped image is a no-op. Assert this in a test.
 
+The palette itself is chosen once, by hand: `sdga palette extract` samples an authored image into
+a `.gpl`/`.png`, a human reviews it, and the result is committed. Extraction is **not** an op and
+never runs per asset — a palette derived per image is the opposite of a lock, and would let each
+asset drift onto its own colours.
+
 ### 4.2 Why `feet` anchoring, not bbox centring
 
 The source guide centres each frame by its bounding-box midpoint. For a walk cycle that makes the

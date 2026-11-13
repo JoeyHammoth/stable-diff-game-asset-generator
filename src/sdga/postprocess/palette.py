@@ -46,9 +46,10 @@ def _distance(left: tuple[float, float, float], right: tuple[float, float, float
     return (left[0] - right[0]) ** 2 + (left[1] - right[1]) ** 2 + (left[2] - right[2]) ** 2
 
 
-def nearest_palette_index(rgb: RGB, palette_lab: Sequence[tuple[float, float, float]]) -> int:
+def _nearest_lab(
+    target: tuple[float, float, float], palette_lab: Sequence[tuple[float, float, float]]
+) -> int:
     """Lowest index wins ties, so the mapping is stable across runs and platforms."""
-    target = rgb_to_oklab(rgb)
     best_index = 0
     best_distance = float("inf")
     for index, candidate in enumerate(palette_lab):
@@ -57,6 +58,10 @@ def nearest_palette_index(rgb: RGB, palette_lab: Sequence[tuple[float, float, fl
             best_index = index
             best_distance = distance
     return best_index
+
+
+def nearest_palette_index(rgb: RGB, palette_lab: Sequence[tuple[float, float, float]]) -> int:
+    return _nearest_lab(rgb_to_oklab(rgb), palette_lab)
 
 
 def snap_to_palette(image: Image.Image, palette: Sequence[RGB]) -> Image.Image:
@@ -93,4 +98,115 @@ def snap_to_palette(image: Image.Image, palette: Sequence[RGB]) -> Image.Image:
     return result
 
 
-__all__ = ["RGB", "nearest_palette_index", "rgb_to_oklab", "snap_to_palette"]
+def _visible_counts(image: Image.Image) -> dict[RGB, int]:
+    """Colour -> pixel count, ignoring fully transparent pixels: they are not visible art."""
+    raw = image.convert("RGBA").tobytes()
+    counts: dict[RGB, int] = {}
+    for offset in range(0, len(raw), 4):
+        if raw[offset + 3]:
+            key = (raw[offset], raw[offset + 1], raw[offset + 2])
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+# Concept images can hold hundreds of thousands of unique colours; clustering every one of
+# them is slow and pointless, since the tail is one-pixel noise. The cap is applied after the
+# total order below, so which colours survive never depends on pixel order.
+_MAX_CLUSTER_POINTS = 4096
+
+
+def extract_colours(image: Image.Image, max_colours: int = 16) -> tuple[RGB, ...]:
+    """Sample an authored image down to a palette of at most `max_colours` real colours.
+
+    This is an authoring aid, not part of the asset chain: the pipeline always snaps to the
+    palette file, so extraction runs once, by hand, when a look is chosen.
+
+    Deterministic on any machine. Colours are weighted by pixel count and ordered by
+    (count desc, RGB asc) rather than by scan order, then clustered in OKLab with Lloyd's
+    algorithm seeded from the most frequent colours. Both the seed and the tie-breaks are
+    total orders, so the same image always produces the same palette.
+
+    Every returned colour is one that occurs in the image (each cluster is represented by
+    its most frequent member), so extraction can never invent a colour the art lacks.
+    """
+    if max_colours < 1:
+        raise ValueError("max_colours must be at least 1")
+
+    counts = _visible_counts(image)
+    if not counts:
+        raise ValueError("cannot extract a palette from an image with no visible pixels")
+
+    ordered = sorted(counts, key=lambda colour: (-counts[colour], colour))
+    if len(ordered) <= max_colours:
+        return tuple(ordered)
+
+    limited = ordered[:_MAX_CLUSTER_POINTS]
+    points = [(rgb_to_oklab(colour), counts[colour]) for colour in limited]
+    centres = [lab for lab, _weight in points[:max_colours]]
+
+    for _ in range(32):
+        groups = _assign(points, centres)
+        moved = _means(points, groups, centres)
+        if moved == centres:
+            break
+        centres = moved
+
+    # Points keep frequency order, so a group's first member is its most common colour.
+    groups = _assign(points, centres)
+    chosen: list[RGB] = []
+    for members in groups:
+        if members and limited[members[0]] not in chosen:
+            chosen.append(limited[members[0]])
+
+    # Rounding through real colours can merge two clusters; top up from the tail so a large
+    # enough image still yields the number of colours the caller asked for.
+    if len(chosen) < max_colours:
+        for colour in ordered:
+            if len(chosen) >= max_colours:
+                break
+            if colour not in chosen:
+                chosen.append(colour)
+
+    chosen.sort(key=lambda colour: (-counts[colour], colour))
+    return tuple(chosen[:max_colours])
+
+
+def _assign(
+    points: Sequence[tuple[tuple[float, float, float], int]],
+    centres: Sequence[tuple[float, float, float]],
+) -> list[list[int]]:
+    groups: list[list[int]] = [[] for _ in centres]
+    for index, (lab, _weight) in enumerate(points):
+        groups[_nearest_lab(lab, centres)].append(index)
+    return groups
+
+
+def _means(
+    points: Sequence[tuple[tuple[float, float, float], int]],
+    groups: Sequence[Sequence[int]],
+    centres: Sequence[tuple[float, float, float]],
+) -> list[tuple[float, float, float]]:
+    """Pixel-count-weighted mean of each group; an empty group keeps its old centre."""
+    moved: list[tuple[float, float, float]] = []
+    for group, centre in zip(groups, centres, strict=True):
+        total = sum(points[index][1] for index in group)
+        if not total:
+            moved.append(centre)
+            continue
+        moved.append(
+            (
+                sum(points[index][0][0] * points[index][1] for index in group) / total,
+                sum(points[index][0][1] * points[index][1] for index in group) / total,
+                sum(points[index][0][2] * points[index][1] for index in group) / total,
+            )
+        )
+    return moved
+
+
+__all__ = [
+    "RGB",
+    "extract_colours",
+    "nearest_palette_index",
+    "rgb_to_oklab",
+    "snap_to_palette",
+]

@@ -83,7 +83,7 @@ passes every gate, and `sdga validate packs/<id>` re-confirms it with the backen
 | T18 | `sprite_sheet` recipe + `frame_grid` + `alpha_trim` + `center_anchor(feet)` + `frames_aligned` | L | T13, T17 | 8-frame walk: all frames' bottom rows within ±1 px; empty frame is an error, not a skip |
 | T19 | Pose references: authored dw-pose sheet path (default) + optional per-frame img2img variant | M | T18 | Both paths produce a bound graph from the same spec by changing only the recipe |
 | T20 | `ui_element` recipe + `ninepatch_mirror` + margins + `symmetry_9patch` gate | M | T13 | Output is bitwise symmetric; declared margins satisfy `2*max(margin) < edge`; margins reach `pack.json` |
-| T21 | `concept` recipe + reference-cleaning ops (bg removal optional, palette snap, palette *extract* as an authoring command) | M | T13 | `sdga palette extract` writes a `.gpl`; it is a one-time authoring tool, never in the asset chain |
+| T21 | `concept` recipe + reference-cleaning ops (bg removal optional, palette snap, palette *extract* as an authoring command) | M | T13 | `sdga palette extract` writes a `.gpl` or `.png`; it is a one-time authoring tool, never in the asset chain |
 | T22 | `normal_map` kind: `depth_to_normal` + `normal_map_valid` + `normal_sphere` fixture + `flip_g` | M | T13 | Sphere fixture validates; depth-passthrough fixture **fails** the gate (regression guard) |
 | T23 | `candidates: N` + promote/reject + `review` CLI + `review.html` contact sheet | M | T15 | 4 candidates → exactly one promoted; contact sheet renders ref and result side by side |
 | T24 | `ui_element` icons (`icon` kind), `alpha_trim`/`center` variant | S | T20 | 16×16 icon with binary alpha and exact palette |
