@@ -45,9 +45,9 @@ class CacheEntry:
         }
 
 
-def _filename(request_hash: str) -> str:
+def _filename(request_hash: str, suffix: str = ".png") -> str:
     """`request_hash` carries a `sha256:` prefix; a colon is not a legal filename on Windows."""
-    return request_hash.split(":", 1)[-1] + ".png"
+    return request_hash.split(":", 1)[-1] + suffix
 
 
 class ArtifactCache:
@@ -130,7 +130,9 @@ class ArtifactCache:
             return None
         source = Path(source)
         self.root.mkdir(parents=True, exist_ok=True)
-        target = self.root / _filename(request_hash)
+        # The suffix follows the artifact: a cached WAV stays a WAV, so a hit is the same file
+        # a fresh generation would have produced.
+        target = self.root / _filename(request_hash, source.suffix or ".png")
         shutil.copyfile(source, target)
         entry = CacheEntry(
             request_hash=request_hash,

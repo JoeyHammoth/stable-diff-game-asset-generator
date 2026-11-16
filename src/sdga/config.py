@@ -25,7 +25,7 @@ from .paths import relative_path
 
 CONFIG_NAME = "sdga.toml"
 
-_TOP_KEYS = {"schema", "project", "style", "backend", "pack", "gates"}
+_TOP_KEYS = {"schema", "project", "style", "backend", "audio", "pack", "gates"}
 _PROJECT_KEYS = {
     "name",
     "root",
@@ -61,6 +61,7 @@ _BACKEND_KEYS = {
 _RETRY_KEYS = {"attempts", "backoff_s"}
 _PACK_KEYS = {"id_template", "require_review", "include_raw"}
 _GATES_KEYS = {"on_fail", "thresholds"}
+_AUDIO_KEYS = {"kind", "sample_rate", "soundfont", "positive_anchors", "negative_anchors"}
 
 _GPL_LINE = re.compile(r"^\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\b")
 
@@ -102,11 +103,28 @@ class GatesConfig:
 
 
 @dataclass(frozen=True)
+class AudioConfig:
+    """`[audio]`: the second backend family (docs/04-pipeline-stages.md §10).
+
+    Optional, so an image-only project keeps working unchanged. The anchors live here rather
+    than in `[style]` because "flat colours, crisp outlines" is advice for a pixel renderer
+    and actively wrong for a soundtrack.
+    """
+
+    kind: str = "synth"
+    sample_rate: int = 32000
+    soundfont: str = ""
+    positive_anchors: tuple[str, ...] = ()
+    negative_anchors: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Config:
     path: Path
     project: ProjectConfig
     style: StyleContract
     backend: BackendConfig
+    audio: AudioConfig
     pack: PackConfig
     gates: GatesConfig
 
@@ -448,6 +466,33 @@ def load_config(project: str | Path) -> Config:
         retry_backoff_s=_num(retry_table, "backoff_s", backend_where, default=5.0),
     )
 
+    audio_table = _table(raw, "audio", where, required=False)
+    audio_where = f"{where} [audio]"
+    _keys(audio_table, _AUDIO_KEYS, audio_where)
+    audio_kind = _str(audio_table, "kind", audio_where, default="synth")
+    if audio_kind not in {"synth", "fluidsynth"}:
+        raise ConfigError(
+            f"unknown audio backend kind {audio_kind!r}",
+            location=audio_where,
+            remedy="known kinds: synth (offline, deterministic), fluidsynth (needs a soundfont)",
+        )
+    sample_rate = _int(audio_table, "sample_rate", audio_where, default=32000, minimum=8000)
+    if sample_rate > 192000:
+        raise ConfigError("sample_rate must be at most 192000", location=audio_where)
+    # An explicit empty soundfont is meaningful ("synth only"), so this key is the one place
+    # where an empty string is accepted rather than rejected.
+    raw_soundfont = audio_table.get("soundfont", "")
+    if not isinstance(raw_soundfont, str):
+        raise ConfigError("soundfont must be a path or an empty string", location=audio_where)
+    soundfont = _relative(raw_soundfont, audio_where, "soundfont") if raw_soundfont.strip() else ""
+    audio_cfg = AudioConfig(
+        kind=audio_kind,
+        sample_rate=sample_rate,
+        soundfont=soundfont,
+        positive_anchors=_string_list(audio_table, "positive_anchors", audio_where),
+        negative_anchors=_string_list(audio_table, "negative_anchors", audio_where),
+    )
+
     pack_table = _table(raw, "pack", where, required=False)
     pack_where = f"{where} [pack]"
     _keys(pack_table, _PACK_KEYS, pack_where)
@@ -473,12 +518,14 @@ def load_config(project: str | Path) -> Config:
         project=project_cfg,
         style=style,
         backend=backend_cfg,
+        audio=audio_cfg,
         pack=pack_cfg,
         gates=gates_cfg,
     )
 
 
 __all__: Sequence[str] = [
+    "AudioConfig",
     "BackendConfig",
     "Config",
     "GatesConfig",

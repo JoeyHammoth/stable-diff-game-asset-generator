@@ -55,3 +55,13 @@ on_fail = "reject"
 max_unique_colors = 16
 seam_edge_ratio = 1.5
 audio_peak_dbfs = -3.0
+
+[audio]
+# synth: offline, deterministic, no soundfont or binary to install — this is what lets the
+# audio pipeline run in CI. fluidsynth additionally needs `soundfont` (a project-relative
+# .sf2) and the fluidsynth binary on PATH; `sdga doctor` names whichever is missing.
+kind = "synth"
+sample_rate = 32000
+soundfont = ""
+positive_anchors = ["orchestral game soundtrack", "cinematic", "loopable texture"]
+negative_anchors = ["distortion", "noise", "harsh transients"]

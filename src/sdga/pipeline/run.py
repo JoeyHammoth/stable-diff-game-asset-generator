@@ -20,7 +20,7 @@ import json
 import platform
 import secrets
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -30,6 +30,25 @@ from typing import Any
 from PIL import Image
 
 from .. import __version__
+from ..audio import (
+    Audio,
+    AudioBackend,
+    AudioGateContext,
+    build_audio_backend,
+    detect_key,
+    evaluate_audio,
+    fade_edges,
+    loop_crossfade,
+    loudness_normalize,
+    mix,
+    read_midi,
+    read_wav,
+    render_sfx,
+    tile_to_length,
+    transform,
+    write_midi,
+    write_wav,
+)
 from ..backends.base import GenerationBackend, JobHandle, JobReport, PollState
 from ..backends.comfyui.recipe import Recipe, RecipeRegistry, load_recipes
 from ..canonical import hash_file, pretty_json
@@ -46,6 +65,11 @@ from .cache import ArtifactCache
 # Icons have no feet: their content is centred rather than grounded.
 CENTERED_KINDS = frozenset({AssetKind.ICON})
 MARGIN_KINDS = frozenset({AssetKind.UI_ELEMENT, AssetKind.ICON})
+AUDIO_KINDS = frozenset({AssetKind.SFX, AssetKind.MUSIC_TRACK})
+
+# A one-shot must start and end at silence or it clicks; 5 ms is short enough to be inaudible
+# and long enough to actually reach zero at 32 kHz.
+SFX_FADE_S = 0.005
 
 ACCEPTED = "accepted"
 REJECTED = "rejected"
@@ -97,8 +121,11 @@ def gate_names(recipe: Recipe | None, spec: AssetSpec) -> list[str]:
 def gate_context(
     config: Config, spec: AssetSpec, palette: tuple[tuple[int, int, int], ...]
 ) -> GateContext:
+    size = final_size(spec)
+    if size is None:
+        raise ValueError(f"{spec.id}: image gates do not apply to audio assets")
     return GateContext(
-        size=final_size(spec),
+        size=size,
         quantum=grid_quantum(spec.kind, config.style.grid),
         palette=palette,
         thresholds=config.gates.thresholds,
@@ -112,8 +139,11 @@ def op_context(
     config: Config, spec: AssetSpec, palette: tuple[tuple[int, int, int], ...]
 ) -> OpContext:
     """One resolved context per asset: ops never guess a size, anchor, or strength."""
+    size = final_size(spec)
+    if size is None:
+        raise ValueError(f"{spec.id}: image ops do not apply to audio assets")
     return OpContext(
-        size=final_size(spec),
+        size=size,
         palette=palette,
         grid=grid_quantum(spec.kind, config.style.grid),
         frames=spec.frames or 1,
@@ -124,6 +154,207 @@ def op_context(
         min_area=int(spec.params.get("min_area", 2)),
         tolerance=int(spec.params.get("bg_tolerance", 24)),
     )
+
+
+def audio_gate_context(
+    config: Config, spec: AssetSpec, params: Mapping[str, Any]
+) -> AudioGateContext:
+    """The tempo grid and peak target an audio gate measures against, resolved once."""
+    target_peak = float(config.gates.thresholds.get("audio_peak_dbfs", -3.0))
+    thresholds = config.gates.thresholds
+    if spec.kind is AssetKind.MUSIC_TRACK:
+        music = params.get("music") or {}
+        return AudioGateContext(
+            expected_duration_s=float(music.get("target_s") or 0.0),
+            target_peak_dbfs=target_peak,
+            bpm=float(music.get("bpm") or 0.0),
+            bars=int(music.get("bars") or 0),
+            beats_per_bar=int(music.get("beats_per_bar") or 0),
+            thresholds=thresholds,
+        )
+    return AudioGateContext(
+        expected_duration_s=float(params.get("duration_s") or 0.0),
+        target_peak_dbfs=target_peak,
+        thresholds=thresholds,
+    )
+
+
+def _melody_midi(
+    config: Config, request: GenerationRequest, run_dir: Path, name: str
+) -> tuple[Path, dict[str, Any]]:
+    """Derive this track's phrase from the leitmotif and write the bound MIDI to disk.
+
+    Written rather than kept in memory because it is the proof of derivation: the pack's
+    provenance points at a MIDI whose notes are auditable against the source phrase.
+    """
+    music = request.params["music"]
+    phrase = read_midi(config.root / str(music["leitmotif"]))
+    key = detect_key(phrase)
+    derived = transform(
+        phrase,
+        key=key,
+        degrees=int(music["transpose"]),
+        tempo_scale=float(music["tempo_scale"]),
+        fragment=int(music["fragment"]),
+        fragment_bars=int(music["fragment_bars"]),
+    )
+    length_beats = float(music["render_s"]) * float(music["bpm"]) / 60.0
+    tiled = tile_to_length(derived, length_beats)
+    target = run_dir / "raw" / f"{name}.mid"
+    write_midi(target, tiled)
+    return target, {
+        "path": _relative(target, config.root),
+        "sha256": hash_file(target),
+        "key": key.to_dict(),
+        "notes": len(tiled.notes),
+    }
+
+
+def _fit_length(audio: Audio, seconds: float) -> Audio:
+    """Cut or pad to an exact number of frames, so the crossfade lands on the bar line."""
+    frames = int(round(seconds * audio.sample_rate))
+    fitted = audio.slice_samples(0, frames)
+    if fitted.frame_count == frames:
+        return fitted
+    padding = frames - fitted.frame_count
+    return Audio(
+        channels=tuple(channel + (0.0,) * padding for channel in fitted.channels),
+        sample_rate=audio.sample_rate,
+    )
+
+
+def _audio_post(
+    config: Config, spec: AssetSpec, raw_path: Path, params: Mapping[str, Any]
+) -> Audio:
+    """The audio chain. Music loops; a one-shot fades and is normalised.
+
+    `trim_silence` is deliberately absent from the one-shot chain: trimming shortens the file,
+    which would fail the same asset's `duration_exact` gate.
+    """
+    audio = read_wav(raw_path)
+    target_peak = float(config.gates.thresholds.get("audio_peak_dbfs", -3.0))
+    if spec.kind is AssetKind.MUSIC_TRACK:
+        music = params["music"]
+        fitted = _fit_length(audio, float(music["render_s"]))
+        mixed = mix(fitted, None, melody_gain_db=float(music.get("melody_gain_db") or 0.0))
+        looped = loop_crossfade(mixed, float(music["crossfade_s"]))
+        return loudness_normalize(looped, target_peak)
+    return loudness_normalize(fade_edges(audio, SFX_FADE_S), target_peak)
+
+
+def execute_audio_job(
+    config: Config,
+    audio_backend: AudioBackend,
+    request: GenerationRequest,
+    spec: AssetSpec,
+    run_dir: Path,
+    *,
+    cache: ArtifactCache | None = None,
+    profile_hash: str = "",
+    emit: Callable[[str], None] = print,
+) -> dict[str, Any]:
+    """One audio asset: derive the phrase, render, loop or fade, then gate.
+
+    Same record shape as an image job, because `publish`, `verify` and `status` should not
+    need to know which half of the pipeline produced a file.
+    """
+    music = request.params.get("music") or {}
+    record: dict[str, Any] = {
+        "asset_id": request.asset_id,
+        "kind": request.kind.value,
+        "candidate": request.candidate,
+        "recipe": None,
+        "request_hash": request.request_hash,
+        "seed": request.seed,
+        "params": dict(request.params),
+        "refs": [],
+        "status": FAILED,
+        "cached": False,
+        "source": "generated",
+    }
+    started = time.monotonic()
+    name = spec.slug if max(1, spec.candidates) == 1 else f"{spec.slug}__c{request.candidate}"
+    raw_dest = run_dir / "raw" / f"{name}.wav"
+
+    try:
+        midi_path: Path | None = None
+        if spec.kind is AssetKind.MUSIC_TRACK:
+            midi_path, midi_record = _melody_midi(config, request, run_dir, name)
+            record["midi"] = midi_record
+
+        entry = None
+        if cache is not None:
+            entry = cache.lookup(request.request_hash, profile_hash)
+        if entry is not None and cache is not None:
+            raw_path = cache.link(entry, raw_dest)
+            record["cached"] = True
+            record["source"] = "cache"
+        else:
+            if spec.kind is AssetKind.MUSIC_TRACK:
+                if midi_path is None:  # pragma: no cover - set just above
+                    raise ValueError(f"{request.asset_id}: no melody to render")
+                raw_path = audio_backend.render_melody(
+                    midi_path, raw_dest, timbre=str(music["timbre"])
+                )
+            else:
+                generated = render_sfx(
+                    seed=request.seed,
+                    duration_s=float(request.params["duration_s"]),
+                    sample_rate=config.audio.sample_rate,
+                )
+                raw_path = write_wav(raw_dest, generated)
+            if cache is not None and profile_hash:
+                cache.store(request.request_hash, profile_hash, raw_path)
+
+        record["retries"] = []
+        record["raw"] = [{"path": _relative(raw_path, config.root), "sha256": hash_file(raw_path)}]
+
+        processed = _audio_post(config, spec, raw_path, request.params)
+        post_path = run_dir / "post" / f"{name}.wav"
+        write_wav(post_path, processed)
+        record["post"] = [
+            {
+                "path": _relative(post_path, config.root),
+                "sha256": hash_file(post_path),
+                "sample_rate": processed.sample_rate,
+                "channels": processed.channel_count,
+                "duration_s": round(processed.duration_s, 6),
+                "peak_dbfs": round(processed.peak_dbfs(), 3),
+            }
+        ]
+        record["postprocess"] = (
+            ["loop_crossfade", "loudness_normalize"]
+            if spec.kind is AssetKind.MUSIC_TRACK
+            else ["fade_edges", "loudness_normalize"]
+        )
+        if spec.kind is AssetKind.MUSIC_TRACK:
+            record["loop"] = {
+                "start_s": 0.0,
+                "end_s": round(float(music["target_s"]), 6),
+                "crossfade_s": float(music["crossfade_s"]),
+                "bpm": float(music["bpm"]),
+                "bars": int(music["bars"]),
+                "beats_per_bar": int(music["beats_per_bar"]),
+            }
+
+        results = evaluate_audio(
+            gate_names(None, spec),
+            processed,
+            audio_gate_context(config, spec, request.params),
+        )
+        record["gates"] = [result.to_dict() for result in results]
+        record["status"] = REJECTED if failed(results, spec.gates) else ACCEPTED
+
+    except BackendError as exc:
+        record["error"] = {"kind": exc.kind, "detail": exc.detail, "payload": exc.payload}
+        record["retries"] = []
+        record["status"] = FAILED
+    except (OSError, ValueError) as exc:
+        record["error"] = {"kind": "bad_output", "detail": f"audio failed: {exc}"}
+        record["status"] = FAILED
+
+    record["timings"] = {"total_s": round(time.monotonic() - started, 3)}
+    return record
 
 
 def palette_for(config: Config) -> tuple[tuple[int, int, int], ...]:
@@ -423,6 +654,7 @@ def execute_run(
     config: Config,
     backend: GenerationBackend,
     *,
+    audio: AudioBackend | None = None,
     assets: Sequence[str] | None = None,
     recipes: RecipeRegistry | None = None,
     dry_run: bool = False,
@@ -442,6 +674,14 @@ def execute_run(
         return RunOutcome("", config.root, "dry-run", 0, 0, 0)
 
     profile = backend.probe()
+    wants_audio = any(request.kind in AUDIO_KINDS for request in plan.requests)
+    audio_backend: AudioBackend = audio or build_audio_backend(
+        config.audio.kind,
+        sample_rate=config.audio.sample_rate,
+        soundfont=config.audio.soundfont,
+        root=config.root,
+    )
+    audio_profile = audio_backend.probe() if wants_audio else None
     palette = palette_for(config)
     cache = ArtifactCache(
         config.root / config.project.cache_dir,
@@ -485,6 +725,18 @@ def execute_run(
             job["source"] = "resume"
             job["timings"] = {"total_s": 0.0}
             return job
+        if request.kind in AUDIO_KINDS:
+            assert audio_profile is not None, "an audio request implies an audio profile"
+            return execute_audio_job(
+                config,
+                audio_backend,
+                request,
+                spec,
+                run_dir,
+                cache=cache,
+                profile_hash=audio_profile.profile_hash,
+                emit=emit,
+            )
         return execute_job(
             config,
             backend,
@@ -523,6 +775,8 @@ def execute_run(
         "reviews": list(previous.get("reviews", [])),
         "jobs": [],
     }
+    if audio_profile is not None:
+        record["audio"] = audio_profile.to_dict()
     if resume is not None:
         record["resumed"] = True
     # From here on a kill leaves a resumable record rather than an anonymous directory.
@@ -568,11 +822,14 @@ def execute_run(
 
 __all__ = [
     "ACCEPTED",
+    "AUDIO_KINDS",
     "FAILED",
     "REJECTED",
     "RESUMABLE_STATUSES",
     "SUPERSEDED",
     "RunOutcome",
+    "audio_gate_context",
+    "execute_audio_job",
     "execute_job",
     "execute_run",
     "gate_context",

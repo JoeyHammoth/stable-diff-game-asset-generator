@@ -66,6 +66,13 @@ on_fail = "reject"                 # reject | warn
 max_unique_colors = 32
 seam_edge_ratio = 1.5
 audio_peak_dbfs = -3.0
+
+[audio]                            # optional; image-only projects can omit it
+kind = "synth"                     # synth (offline, deterministic) | fluidsynth
+sample_rate = 32000
+soundfont = ""                     # project-relative .sf2; required by fluidsynth
+positive_anchors = ["orchestral game soundtrack", "loopable texture"]
+negative_anchors = ["distortion", "noise"]
 ```
 
 ### What the Style Contract hash covers

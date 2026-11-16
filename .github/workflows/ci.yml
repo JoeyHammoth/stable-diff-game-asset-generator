@@ -62,3 +62,27 @@ jobs:
 
       - name: Kill-and-resume leaves no duplicate generations
         run: pytest tests/test_p3.py -k "killed_run or corrupt_cache"
+
+      # P4's gate, on the runner: no soundfont, no fluidsynth binary, no GPU. Eight tracks
+      # derived from one authored phrase must all pass beat_alignment and audio_loop_seam.
+      - name: "P4 gate: eight tracks from one leitmotif"
+        run: |
+          sdga run --project examples \
+            --asset music/cave --asset music/combat --asset music/desert \
+            --asset music/forest --asset music/snow --asset music/swamp \
+            --asset music/title --asset music/town | tee /tmp/p4.log
+          grep -q "8 accepted, 0 rejected" /tmp/p4.log
+          python - <<'PY'
+          import json, pathlib
+          run = sorted(pathlib.Path("examples/runs").glob("*/run.json"))[-1]
+          record = json.loads(run.read_text(encoding="utf-8"))
+          jobs = [job for job in record["jobs"] if job["kind"] == "music_track"]
+          assert len(jobs) == 8, len(jobs)
+          for job in jobs:
+              gates = {gate["gate"]: gate["status"] for gate in job["gates"]}
+              assert gates["beat_alignment"] == "pass", (job["asset_id"], gates)
+              assert gates["audio_loop_seam"] == "pass", (job["asset_id"], gates)
+              # The loop point is the solved bar length; the file is quantised to whole
+              # samples, so allow one sample of rounding rather than demanding equality.
+              assert abs(job["loop"]["end_s"] - job["post"][0]["duration_s"]) <= 1e-3
+          PY

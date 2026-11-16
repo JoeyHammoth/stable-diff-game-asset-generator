@@ -21,6 +21,8 @@ from ..config import Config
 from ..errors import SdgaError
 from ..model import SCHEMA
 
+AUDIO_KINDS = frozenset({"sfx", "music_track"})
+
 
 @dataclass(frozen=True)
 class PackResult:
@@ -101,6 +103,23 @@ def _engine_hints(
             "space": "tangent",
             "flip_g": bool((job.get("params") or {}).get("flip_g", False)),
         }
+
+    loop = job.get("loop") or {}
+    if kind == "music_track" and loop:
+        # The loop points are what an engine loops on; they come from the solved plan, not
+        # from the file's duration, so a truncated file cannot claim a longer loop.
+        hints["music"] = {
+            "bpm": loop.get("bpm"),
+            "bars": loop.get("bars"),
+            "beats_per_bar": loop.get("beats_per_bar"),
+            "loop": {
+                "start_s": loop.get("start_s", 0.0),
+                "end_s": loop.get("end_s"),
+                "crossfade_s": loop.get("crossfade_s", 0.0),
+            },
+        }
+    if kind == "sfx" and files and files[0].get("duration_s"):
+        hints["sfx"] = {"duration_s": files[0]["duration_s"], "one_shot": True}
     return hints
 
 
@@ -151,23 +170,40 @@ def publish(config: Config, run_dir: Path, *, allow_unreviewed: bool = False) ->
                 f"{asset_id}: missing artifact {post['path']}",
                 remedy="the run directory has been modified; re-run the asset",
             )
-        target_rel = f"assets/{asset_id}.png"
+        audio = job.get("kind") in AUDIO_KINDS
+        suffix = ".wav" if audio else ".png"
+        target_rel = f"assets/{asset_id}{suffix}"
         target = pack_dir / target_rel
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
 
         checks = job.get("gates", [])
-        files = [
-            {
-                "path": target_rel,
-                "role": "albedo",
-                "sha256": hash_file(target),
-                "width": post.get("width"),
-                "height": post.get("height"),
-                "format": "png",
-                "bytes": target.stat().st_size,
-            }
-        ]
+        if audio:
+            files = [
+                {
+                    "path": target_rel,
+                    "role": "audio",
+                    "sha256": hash_file(target),
+                    "format": "wav",
+                    "sample_rate": post.get("sample_rate"),
+                    "channels": post.get("channels"),
+                    "duration_s": post.get("duration_s"),
+                    "peak_dbfs": post.get("peak_dbfs"),
+                    "bytes": target.stat().st_size,
+                }
+            ]
+        else:
+            files = [
+                {
+                    "path": target_rel,
+                    "role": "albedo",
+                    "sha256": hash_file(target),
+                    "width": post.get("width"),
+                    "height": post.get("height"),
+                    "format": "png",
+                    "bytes": target.stat().st_size,
+                }
+            ]
         engine = _engine_hints(job, files, checks)
         entry: dict[str, Any] = {
             "id": asset_id,
@@ -242,6 +278,12 @@ def _write_licenses(pack_dir: Path, config: Config, run: Mapping[str, Any]) -> N
         f"- checkpoint: `{style.checkpoint}`",
     ]
     lines.extend(f"- lora: `{lora.name}` ({lora.strength_model:g})" for lora in style.loras)
+    audio = run.get("audio") or {}
+    if audio:
+        version = audio.get("version") or ""
+        lines.append(
+            f"- audio backend: `{audio.get('kind')}` {version} @ {audio.get('sample_rate')} Hz"
+        )
     lines.extend(
         [
             "",
