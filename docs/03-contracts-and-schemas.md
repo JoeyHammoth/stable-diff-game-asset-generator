@@ -273,6 +273,7 @@ a cache hit requires an identical hash **and** an identical `profile_hash`.
   "started": "2026-11-13T04:15:02Z",
   "finished": "2026-11-13T04:22:41Z",
   "status": "partial",
+  "planned": 2,
   "tool": { "name": "sdga", "version": "0.1.0", "python": "3.11.9" },
   "style": { "name": "mygame", "contract_hash": "sha256:9d3f…" },
   "profile": {
@@ -289,6 +290,8 @@ a cache hit requires an identical hash **and** an identical `profile_hash`.
       "seed": 2749810337,
       "status": "accepted",
       "cached": false,
+      "source": "generated",
+      "retries": [],
       "timings": { "queued_s": 0.2, "executed_s": 41.7, "postprocess_s": 0.14 },
       "raw": [{ "path": "runs/20261113-041502-a7c1/raw/terrain__moss_stone.png",
                 "sha256": "sha256:77aa…" }],
@@ -306,6 +309,17 @@ a cache hit requires an identical hash **and** an identical `profile_hash`.
 ```
 
 A job with `status: rejected` keeps its `gates` so the reason is auditable.
+
+`source` says where the raw artifact came from: `generated` (this run rendered it), `cache`
+(the stage-2 cache), `backend` (the server already had it, found via `/history` on resume), or
+`resume` (carried over from the interrupted run). `cached: true` covers `cache` and `resume`.
+`retries` records every attempt that was abandoned, with `kind`, `detail`, and
+`out_of_memory`, so "it failed twice" is visible without reading console scrollback.
+
+`planned` is the number of requests the plan produced. A run whose `len(jobs) < planned` is
+`running`: it was interrupted, and `sdga run --resume` finishes it. `run.json` is rewritten
+after every completed job for exactly that reason — a killed process must leave resumable state,
+not an empty directory.
 
 With `candidates > 1` there is one job per candidate, each carrying `candidate` and `promoted`;
 the lowest-numbered accepted candidate is promoted and the rest are `superseded`. Review
@@ -383,7 +397,8 @@ single retry with `max_concurrency` forced to 1 and `--lowvram` advice printed.
 ```
 sdga doctor                     # probe backend, validate recipes, list gaps
 sdga plan  [--asset ID…]        # resolve specs → requests; print or write plan.json (no backend)
-sdga run   [--asset ID…] [--dry-run] [--resume] [--force] [--candidates N]
+sdga run   [--asset ID…] [--dry-run] [--resume [RUN]] [--force] [--no-cache]
+sdga status [--run ID] [--json] # backend queue + where the latest run got to
 sdga validate [PACK|RUN]        # re-run gates over existing files; no backend needed
 sdga review  [--asset ID] [--approve|--reject] [--note]
 sdga publish [--run ID]         # write packs/<pack_id>/
@@ -397,6 +412,17 @@ Exit codes: `0` success, `1` gate/review failure, `2` usage error, `3` backend u
 
 `--dry-run` writes `plan.json` and prints the fully bound graph for the first asset. This is the
 primary way to develop a recipe: it needs no GPU and no ComfyUI.
+
+`run --resume [RUN]` continues the named run, or the newest one, instead of starting a new run:
+jobs that already have an intact postprocessed artifact are carried over, and an in-flight job is
+resolved by asking the backend (`GET /history/<prompt_id>`) before it is resubmitted. `--force`
+ignores the cache (and the backend history) and regenerates; `--no-cache` neither reads nor
+writes it. `status` is informational and exits 0 even when the backend is unreachable — the
+unreachable queue is printed as the answer, which is more useful than a stack trace.
+
+`validate` accepts a pack directory, a run directory, or a bare run id. `--json` emits
+`{"schema": 1, "ok": bool, "failures": n, "rows": [...]}` — sorted, so two invocations diff
+cleanly in CI and a reviewer sees exactly which gate moved.
 
 `palette extract` is the one command that *writes* style data. It samples an authored image down to
 at most `--colors` colours (default: `[style] palette_colors`), writes `.gpl` or `.png` according to
