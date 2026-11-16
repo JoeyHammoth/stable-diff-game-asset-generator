@@ -19,8 +19,8 @@ an opinion.
 
 ## Status
 
-**P0–P5 implemented and CI-verified** on a GPU-less runner: generation, caching, resume,
-review, publishing, audit, and the optional Godot adapter. Start at
+**P0–P6 implemented and CI-verified** on a GPU-less runner: generation, caching, resume,
+review, publishing, integrity-checked audit, retention, and the optional Godot adapter. Start at
 [docs/README.md](docs/README.md); the build history and acceptance evidence are in
 [docs/06-implementation-plan.md](docs/06-implementation-plan.md).
 

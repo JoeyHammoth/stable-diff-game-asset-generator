@@ -30,6 +30,7 @@ from .pack import publish
 from .palettes import extract_palette, write_palette
 from .pipeline import collect, execute_run, run_dir_for, runs_root, verify_pack, verify_run
 from .planning import build_plan
+from .retention import KeepPacks, collect_garbage
 from .review import record_review
 from .specs import load_specs
 
@@ -176,6 +177,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     adapt_cmd.set_defaults(func=cmd_adapt)
 
+    gc_cmd = sub.add_parser(
+        "gc",
+        parents=[common],
+        help="prune old runs and packs; published runs are never deleted",
+    )
+    gc_cmd.add_argument(
+        "--keep-runs",
+        type=_non_negative,
+        default=20,
+        metavar="N",
+        help="keep the newest N runs, even before protection (default: 20)",
+    )
+    gc_cmd.add_argument(
+        "--keep-packs",
+        type=_keep_packs,
+        default="all",
+        metavar="N|all",
+        help="keep the newest N packs, or all (default: all)",
+    )
+    gc_cmd.add_argument(
+        "--dry-run", action="store_true", help="print what would be deleted without deleting"
+    )
+    gc_cmd.add_argument("--json", action="store_true", help="emit the plan as JSON")
+    gc_cmd.set_defaults(func=cmd_gc)
+
     palette_cmd = sub.add_parser("palette", help="author the project palette (a one-time step)")
     palette_sub = palette_cmd.add_subparsers(
         dest="palette_command", required=True, metavar="COMMAND"
@@ -206,6 +232,22 @@ def build_parser() -> argparse.ArgumentParser:
     extract_cmd.set_defaults(func=cmd_palette_extract)
 
     return parser
+
+
+def _non_negative(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be an integer") from None
+    if value < 0:
+        raise argparse.ArgumentTypeError("must be >= 0")
+    return value
+
+
+def _keep_packs(text: str) -> KeepPacks:
+    if text == "all":
+        return "all"
+    return _non_negative(text)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -414,6 +456,21 @@ def cmd_review(args: argparse.Namespace) -> int:
         record_review(config, run_dir, asset_id, decision, note=args.note)
         print(f"{asset_id}: {decision}")
     print(f"wrote {_display(run_dir / 'review.html', config.root)}")
+    return EXIT_OK
+
+
+def cmd_gc(args: argparse.Namespace) -> int:
+    config = load_config(args.project)
+    result = collect_garbage(
+        config,
+        keep_runs=args.keep_runs,
+        keep_packs=args.keep_packs,
+        dry_run=args.dry_run,
+    )
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(result.render())
     return EXIT_OK
 
 

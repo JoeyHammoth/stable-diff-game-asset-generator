@@ -167,7 +167,7 @@ def test_a_pack_that_lost_a_file_fails_validation(project: Path):
 
     ok, rows = verify_pack(config, result.path, load_recipes(config))
     assert not ok
-    assert rows[0]["gate"] == "file"
+    assert any(row["gate"] == "file" for row in rows), rows
 
 
 # --------------------------------------------------------------------- CLI
