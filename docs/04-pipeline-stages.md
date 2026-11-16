@@ -357,6 +357,22 @@ mixed at a fixed gain. `[audio] bed` chooses where it comes from:
   never a silent fall-through to a melody-only track. Resampling is not implemented: keep the
   service and `[audio] sample_rate` in step.
 
+  `tools/musicgen_server.py` is the reference implementation of that contract (torch and the
+  weights are installed separately; `sdga` itself never imports them):
+
+  ```
+  python -m venv .venv-musicgen
+  .venv-musicgen/Scripts/activate        # or: source .venv-musicgen/bin/activate
+  pip install torch --index-url https://download.pytorch.org/whl/cu126   # CPU: plain torch
+  pip install transformers numpy
+  python tools/musicgen_server.py --model facebook/musicgen-small --port 8765
+  ```
+
+  It asks MusicGen for `ceil(duration_s * 50) + 2` tokens and lets the pipeline cut the excess,
+  so a short render is never padded with silence at the loop seam. Stock MusicGen has no
+  negative conditioning, so the server folds the negative prompt into the text as `Avoid: ...`;
+  the authored melody is mixed in afterwards regardless, so the leitmotif is still guaranteed.
+
 The bed is the cached raw artifact, because it is the model-produced half. On a hit the
 deterministic melody is re-rendered and re-mixed with the cached bed, so a change to the mix or
 the postprocess is re-evaluated rather than served from cache.
