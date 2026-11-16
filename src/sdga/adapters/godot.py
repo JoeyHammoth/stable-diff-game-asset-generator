@@ -70,9 +70,7 @@ def read_pack(pack_dir: Path) -> dict[str, Any]:
     try:
         parsed = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise SdgaError(
-            f"cannot read {path}: {exc}", remedy="re-publish the pack"
-        ) from None
+        raise SdgaError(f"cannot read {path}: {exc}", remedy="re-publish the pack") from None
     if not isinstance(parsed, dict):
         _fail(f"{path} is not a JSON object")
     document: dict[str, Any] = parsed
@@ -133,7 +131,9 @@ def _loop(asset: Mapping[str, Any]) -> Mapping[str, Any]:
     return inner if isinstance(inner, dict) else {}
 
 
-def build_godot_bundle(pack: Mapping[str, Any], *, fps: int = DEFAULT_FPS) -> dict[str, dict[str, Any]]:
+def build_godot_bundle(
+    pack: Mapping[str, Any], *, fps: int = DEFAULT_FPS
+) -> dict[str, dict[str, Any]]:
     """Pure pack -> documents. No filesystem access beyond the parsed manifest."""
     if isinstance(fps, bool) or not isinstance(fps, int) or fps <= 0:
         raise UsageError(f"--fps must be a positive integer, got {fps!r}")
@@ -171,9 +171,9 @@ def _import_hints(pack: Mapping[str, Any]) -> dict[str, Any]:
                         _fail(f"{asset['id']}: loop points {begin}..{end} are not increasing")
                     hint["loop_begin_s"] = round(begin, 6)
                     hint["loop_end_s"] = round(end, 6)
-                    rate = entry.get("sample_rate") or (
-                        _engine(asset).get("audio") or {}
-                    ).get("sample_rate")
+                    rate = entry.get("sample_rate") or (_engine(asset).get("audio") or {}).get(
+                        "sample_rate"
+                    )
                     if isinstance(rate, int) and rate > 0:
                         # Godot's WAV importer stores loop points in frames.
                         hint["loop_begin_frame"] = int(round(begin * rate))
@@ -195,7 +195,10 @@ def _ninepatch(pack: Mapping[str, Any]) -> dict[str, Any]:
             not isinstance(margins, Sequence)
             or isinstance(margins, str)
             or len(margins) != 2
-            or any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in margins)
+            or any(
+                isinstance(value, bool) or not isinstance(value, int) or value < 0
+                for value in margins
+            )
         ):
             _fail(f"{asset['id']}: ui.margins must be [horizontal, vertical], got {margins!r}")
         horizontal, vertical = int(margins[0]), int(margins[1])
@@ -236,9 +239,7 @@ def _sprite_frames(pack: Mapping[str, Any], fps: int) -> dict[str, Any]:
         rows = _positive_int(sprite.get("rows"), f"{asset['id']}: sprite.rows")
         frames = _positive_int(sprite.get("frames"), f"{asset['id']}: sprite.frames")
         if cols * rows < frames:
-            _fail(
-                f"{asset['id']}: sprite grid {cols}x{rows} cannot hold {frames} frame(s)"
-            )
+            _fail(f"{asset['id']}: sprite grid {cols}x{rows} cannot hold {frames} frame(s)")
         sprites[str(asset["id"])] = {
             "path": _first_path(asset),
             "frame_size": [int(frame_size[0]), int(frame_size[1])],
@@ -281,9 +282,7 @@ def _audio_buses(pack: Mapping[str, Any]) -> dict[str, Any]:
         if kind == "sfx":
             entry["one_shot"] = True
         assets[str(asset["id"])] = entry
-    buses = [
-        {"name": name, "volume_db": 0.0, "send": "Master"} for name in sorted(used)
-    ]
+    buses = [{"name": name, "volume_db": 0.0, "send": "Master"} for name in sorted(used)]
     return {
         "schema": SCHEMA,
         "engine": ENGINE,
@@ -328,9 +327,7 @@ def adapt_godot(pack_dir: Path, out_dir: Path, *, fps: int = DEFAULT_FPS) -> Ada
     _validate_bundle(bundle, str(pack["pack_id"]))
 
     texts = {name: pretty_json(document) for name, document in bundle.items()}
-    hashes = {
-        name: sha256_tagged(text.encode("utf-8")) for name, text in sorted(texts.items())
-    }
+    hashes = {name: sha256_tagged(text.encode("utf-8")) for name, text in sorted(texts.items())}
     texts["manifest.json"] = pretty_json(
         {
             "schema": SCHEMA,
