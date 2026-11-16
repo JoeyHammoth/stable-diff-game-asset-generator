@@ -82,9 +82,9 @@ def test_a_comfyui_backend_that_is_not_running_exits_as_unavailable(tmp_path: Pa
     assert "unreachable" in out
 
 
-def test_unimplemented_command_exits_as_usage_error(project: Path, capsys):
-    assert main(["adapt", "--project", str(project)]) == 2
-    assert "phase P5" in capsys.readouterr().err
+def test_adapt_without_a_pack_fails_with_a_remedy(project: Path, capsys):
+    assert main(["adapt", "--project", str(project)]) == 1
+    assert "no published packs" in capsys.readouterr().err
 
 
 def test_unknown_command_exits_two():

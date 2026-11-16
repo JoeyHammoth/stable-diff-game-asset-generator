@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__, doctor
+from .adapters import adapt
 from .audio import AudioBackend, BedBackend, build_audio_backend, build_bed_backend
 from .backends import FakeBackend, GenerationBackend
 from .backends.comfyui import ComfyUIBackend, load_recipes
@@ -21,7 +22,6 @@ from .errors import (
     EXIT_BACKEND,
     EXIT_FAILURE,
     EXIT_OK,
-    EXIT_USAGE,
     SdgaError,
     UsageError,
 )
@@ -32,11 +32,6 @@ from .pipeline import collect, execute_run, run_dir_for, runs_root, verify_pack,
 from .planning import build_plan
 from .review import record_review
 from .specs import load_specs
-
-# Still ahead of this build. Named explicitly so the gap is visible, not silent.
-STUBS: dict[str, tuple[str, str]] = {
-    "adapt": ("P5", "emit engine hints from a pack"),
-}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -154,6 +149,33 @@ def build_parser() -> argparse.ArgumentParser:
     review_cmd.add_argument("--note", default=None, help="why, for the record")
     review_cmd.set_defaults(func=cmd_review)
 
+    adapt_cmd = sub.add_parser(
+        "adapt", parents=[common], help="emit engine data from a published pack (no engine needed)"
+    )
+    adapt_cmd.add_argument(
+        "--engine", default="godot", choices=["godot"], help="engine to adapt for (default: godot)"
+    )
+    adapt_cmd.add_argument(
+        "--pack",
+        default=None,
+        metavar="DIR",
+        help="pack directory (default: the newest under [project] packs_dir)",
+    )
+    adapt_cmd.add_argument(
+        "--out",
+        default=None,
+        metavar="DIR",
+        help="output directory (default: <root>/adapters/<pack_id>/godot)",
+    )
+    adapt_cmd.add_argument(
+        "--fps",
+        type=int,
+        default=8,
+        metavar="N",
+        help="animation clock written into SpriteFrames (default: 8)",
+    )
+    adapt_cmd.set_defaults(func=cmd_adapt)
+
     palette_cmd = sub.add_parser("palette", help="author the project palette (a one-time step)")
     palette_sub = palette_cmd.add_subparsers(
         dest="palette_command", required=True, metavar="COMMAND"
@@ -182,10 +204,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="overwrite an existing palette file (changes every seed)",
     )
     extract_cmd.set_defaults(func=cmd_palette_extract)
-
-    for name, (phase, description) in STUBS.items():
-        stub = sub.add_parser(name, parents=[common], help=f"{description} (phase {phase})")
-        stub.set_defaults(func=cmd_stub)
 
     return parser
 
@@ -399,6 +417,20 @@ def cmd_review(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_adapt(args: argparse.Namespace) -> int:
+    config = load_config(args.project)
+    result = adapt(
+        config,
+        pack=args.pack,
+        out=args.out,
+        engine=args.engine,
+        fps=args.fps,
+    )
+    print(f"adapted {result.pack_id} for {result.engine}: {len(result.files)} file(s)")
+    print(f"wrote {_display(result.path, config.root)}")
+    return EXIT_OK
+
+
 def cmd_palette_extract(args: argparse.Namespace) -> int:
     config = load_config(args.project)
 
@@ -435,16 +467,6 @@ def cmd_palette_extract(args: argparse.Namespace) -> int:
         )
     print("review the palette, then run `sdga plan` and commit plan.json: seeds change")
     return EXIT_OK
-
-
-def cmd_stub(args: argparse.Namespace) -> int:
-    phase, description = STUBS[args.command]
-    print(
-        f"sdga: '{args.command}' is not available in this build "
-        f"(planned for phase {phase}: {description})",
-        file=sys.stderr,
-    )
-    return EXIT_USAGE
 
 
 def _dims(size: tuple[int, int] | None) -> str:

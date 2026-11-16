@@ -121,8 +121,11 @@ def _engine_hints(
         bed = job.get("bed")
         if bed:
             hints["music"]["bed"] = {"kind": bed.get("kind"), "gain_db": bed.get("gain_db")}
+        # The adapter maps this to a Godot bus; the pack stays engine-neutral.
+        hints["audio"] = {"bus": "Music", "sample_rate": files[0].get("sample_rate")}
     if kind == "sfx" and files and files[0].get("duration_s"):
         hints["sfx"] = {"duration_s": files[0]["duration_s"], "one_shot": True}
+        hints["audio"] = {"bus": "SFX", "sample_rate": files[0].get("sample_rate")}
     return hints
 
 

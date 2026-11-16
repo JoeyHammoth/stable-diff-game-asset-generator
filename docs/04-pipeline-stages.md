@@ -281,16 +281,26 @@ pipeline writes outside `runs/` and `.sdga/`.
 
 ## 8. adapt (optional)
 
-`sdga adapt --engine godot` reads a pack and emits engine hints as data:
+`sdga adapt --engine godot --pack <pack>` reads a pack and writes engine data to
+`adapters/<pack_id>/godot/` (or `--out DIR`):
 
-- a `godot_import.json` mapping files to import settings (`filter=false`, `mipmaps=false`,
-  compression per kind)
-- `NinePatchRect` margins from `engine.ui.margins`
-- an `AnimatedSprite2D` `SpriteFrames` descriptor (`frame size`, `cols`, `fps`)
-- an audio bus map from `engine.audio.bus`
+- `godot_import.json` — per file import settings: `filter=false`, `mipmaps=false`, lossless
+  compression for pixel kinds and VRAM compression for concepts; WAV files get `loop_mode`,
+  loop points in seconds and frames, and the music loop is forward-only.
+- `ninepatch.json` — `NinePatchRect` margins. The pack stores the uniform border as
+  `[horizontal, vertical]`; the adapter applies each pair to both edges, which is what the
+  symmetry gate proved is safe.
+- `sprite_frames.json` — an `AnimatedSprite2D` `SpriteFrames` descriptor: frame size, grid,
+  frame count and one `default` animation. The playback clock is `--fps` (default 8) because the
+  pack deliberately carries layout, not engine speed.
+- `audio_buses.json` — the bus from `engine.audio.bus` for each audio asset, the buses used, and
+  each track's loop in seconds.
+- `manifest.json` — a sha256 of every artifact above, so two runs can be diffed byte-for-byte.
 
-It does **not** write `.tscn` files, does not require Godot, and is off unless invoked. A separate
-Godot-side importer (out of scope for this repo) consumes these files.
+It does **not** write `.tscn`/`.tres` files, does not require Godot, and is off unless invoked;
+the output is deterministic JSON. A separate Godot-side importer (out of scope for this repo)
+consumes these files. A malformed `engine` hint is an error with a remedy, never a guessed
+default: an adapter that silently omits a margins block ships a subtly broken UI.
 
 ---
 
