@@ -46,3 +46,19 @@ jobs:
 
       - name: Validate the pack with no backend
         run: sdga validate --project examples "$(ls -d examples/packs/* | head -1)"
+
+      # P3's whole claim is "nothing changed means nothing regenerated". A second run of the
+      # same asset must be one cache hit and zero generations; a resumed run of a complete
+      # run must generate nothing at all.
+      - name: Second run is a cache hit
+        run: |
+          sdga run --project examples --asset terrain/moss_stone | tee /tmp/rerun.log
+          grep -q "cache: 1 hit(s), 0 generated" /tmp/rerun.log
+
+      - name: Resuming a finished run generates nothing
+        run: |
+          sdga run --project examples --asset terrain/moss_stone --resume latest | tee /tmp/resume.log
+          grep -q "cache: 1 hit(s), 0 generated" /tmp/resume.log
+
+      - name: Kill-and-resume leaves no duplicate generations
+        run: pytest tests/test_p3.py -k "killed_run or corrupt_cache"

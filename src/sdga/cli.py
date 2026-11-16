@@ -26,7 +26,7 @@ from .errors import (
 )
 from .pack import publish
 from .palettes import extract_palette, write_palette
-from .pipeline import execute_run, run_dir_for, verify_pack, verify_run
+from .pipeline import collect, execute_run, run_dir_for, runs_root, verify_pack, verify_run
 from .planning import build_plan
 from .review import record_review
 from .specs import load_specs
@@ -95,6 +95,18 @@ def build_parser() -> argparse.ArgumentParser:
     run_cmd.add_argument(
         "--dry-run", action="store_true", help="print bound graphs without generating"
     )
+    run_cmd.add_argument(
+        "--resume",
+        nargs="?",
+        const="latest",
+        default=None,
+        metavar="RUN_ID",
+        help="continue an interrupted run (default: the newest run) instead of starting one",
+    )
+    run_cmd.add_argument(
+        "--force", action="store_true", help="ignore the cache and regenerate everything"
+    )
+    run_cmd.add_argument("--no-cache", action="store_true", help="neither read nor write the cache")
     run_cmd.set_defaults(func=cmd_run)
 
     publish_cmd = sub.add_parser(
@@ -115,6 +127,13 @@ def build_parser() -> argparse.ArgumentParser:
     validate_cmd.add_argument("--run", dest="run_id", default=None, help="validate a run instead")
     validate_cmd.add_argument("--json", action="store_true", help="emit rows as JSON")
     validate_cmd.set_defaults(func=cmd_validate)
+
+    status_cmd = sub.add_parser(
+        "status", parents=[common], help="show the backend queue and where the latest run got to"
+    )
+    status_cmd.add_argument("--run", dest="run_id", default=None, help="run id (default: latest)")
+    status_cmd.add_argument("--json", action="store_true", help="emit the report as JSON")
+    status_cmd.set_defaults(func=cmd_status)
 
     review_cmd = sub.add_parser(
         "review", parents=[common], help="approve or reject a run's assets; writes review.html"
@@ -235,7 +254,15 @@ def cmd_plan(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     config = load_config(args.project)
     backend = make_backend(config)
-    outcome = execute_run(config, backend, assets=args.asset or None, dry_run=args.dry_run)
+    outcome = execute_run(
+        config,
+        backend,
+        assets=args.asset or None,
+        dry_run=args.dry_run,
+        resume=args.resume,
+        force=args.force,
+        use_cache=not args.no_cache,
+    )
     if args.dry_run:
         return EXIT_OK
 
@@ -244,8 +271,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         f"({outcome.accepted} accepted, {outcome.rejected} rejected, "
         f"{outcome.failed} failed, {outcome.superseded} superseded)"
     )
+    print(f"cache: {outcome.cached} hit(s), {outcome.generated} generated")
     print(f"wrote {_display(outcome.run_dir / 'run.json', config.root)}")
     print(f"review sheet: {_display(outcome.run_dir / 'review.html', config.root)}")
+    if outcome.status != "complete":
+        print(f"resume with: sdga run --project {args.project} --resume {outcome.run_id}")
     return EXIT_OK if outcome.status == "complete" else EXIT_FAILURE
 
 
@@ -267,22 +297,45 @@ def cmd_validate(args: argparse.Namespace) -> int:
     else:
         if not args.target:
             raise UsageError(
-                "validate needs a pack path or --run <run_id>",
+                "validate needs a pack path, a run path, or --run <run_id>",
                 remedy="for example: sdga validate packs/example-2026-11-13-01",
             )
         target = Path(args.target)
         if not target.is_absolute() and not target.exists():
             target = config.root / target
-        ok, rows = verify_pack(config, target, recipes)
+        run_as_id = runs_root(config) / args.target
+        if (target / "run.json").is_file():
+            ok, rows = verify_run(config, target, recipes)
+        elif (run_as_id / "run.json").is_file():
+            ok, rows = verify_run(config, run_as_id, recipes)
+        else:
+            # A pack dir; verify_pack raises if this is neither, which is the honest error.
+            ok, rows = verify_pack(config, target, recipes)
 
     if args.json:
-        print(json.dumps({"ok": ok, "rows": rows}, indent=2, sort_keys=True))
+        payload = {
+            "schema": 1,
+            "ok": ok,
+            "failures": sum(1 for row in rows if row.get("status") == "fail"),
+            "rows": rows,
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         print(f"{'ASSET':<30} {'GATE':<22} {'STATUS':<7} VALUE")
         for row in rows:
             print(f"{row['asset_id']:<30} {row['gate']:<22} {row['status']:<7} {row.get('value')}")
         print("ok" if ok else "FAILED")
     return EXIT_OK if ok else EXIT_FAILURE
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    config = load_config(args.project)
+    report = collect(config, make_backend(config), run_id=args.run_id)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(report.render())
+    return EXIT_OK
 
 
 def cmd_review(args: argparse.Namespace) -> int:

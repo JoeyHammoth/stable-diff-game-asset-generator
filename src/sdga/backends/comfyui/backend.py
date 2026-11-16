@@ -21,6 +21,7 @@ from ..base import (
     JobHandle,
     JobReport,
     PollState,
+    QueueState,
 )
 from .client import ComfyUIClient
 from .probe import build_profile
@@ -121,6 +122,29 @@ class ComfyUIBackend:
     def cancel(self, handle: JobHandle) -> None:
         self._client.interrupt()
 
+    def lookup(self, request: GenerationRequest) -> JobReport | None:
+        """Resume: did this prompt already finish on the server before we crashed?
+
+        Only a completed job is reported. An error or an unknown prompt returns `None`, so
+        resume re-submits rather than inheriting a stale failure.
+        """
+        prompt_id = prompt_id_for(request.request_hash)
+        try:
+            record = self._client.history(prompt_id).get(prompt_id)
+            if record is None:
+                return None
+            report = self._report_from_history(request, record)
+        except BackendError:
+            return None
+        return report if report.state is PollState.SUCCEEDED else None
+
+    def queue(self) -> QueueState:
+        payload = self._client.queue()
+        return QueueState(
+            running=_prompt_ids(payload.get("queue_running")),
+            pending=_prompt_ids(payload.get("queue_pending")),
+        )
+
     def fetch(self, artifact: ArtifactRef, dest: Path) -> Path:
         payload = self._client.view(artifact.filename, artifact.subfolder, artifact.type)
         if not payload:
@@ -205,6 +229,19 @@ class ComfyUIBackend:
         if frames is None:
             return None
         return WebSocketTracker(prompt_id, lambda: frames)
+
+
+def _prompt_ids(raw: object) -> tuple[str, ...]:
+    """`/queue` entries are `[number, prompt_id, prompt, extra_data, outputs]`; be tolerant."""
+    if not isinstance(raw, list):
+        return ()
+    found: list[str] = []
+    for entry in raw:
+        if isinstance(entry, (list, tuple)) and len(entry) > 1:
+            found.append(str(entry[1]))
+        elif isinstance(entry, dict) and entry.get("prompt_id"):
+            found.append(str(entry["prompt_id"]))
+    return tuple(found)
 
 
 def _error_message(status: Mapping[str, Any]) -> str:

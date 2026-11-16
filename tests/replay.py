@@ -45,9 +45,11 @@ class ReplayServer:
         view_bytes: bytes | None = None,
         prompt_status: int = 200,
         prompt_body: dict | None = None,
+        queue: dict | None = None,
     ) -> None:
         self.object_info = object_info if object_info is not None else load("object_info.json")
         self.system_stats = system_stats if system_stats is not None else load("system_stats.json")
+        self.queue = queue if queue is not None else {"queue_running": [], "queue_pending": []}
         self.history = history if history is not None else load("history_success.json")
         self.view_bytes = view_bytes if view_bytes is not None else checkerboard_png()
         self.prompt_status = prompt_status
@@ -98,6 +100,9 @@ class ReplayServer:
                     return
                 if parsed.path == "/system_stats":
                     self._send(200, json.dumps(replay.system_stats).encode())
+                    return
+                if parsed.path == "/queue":
+                    self._send(200, json.dumps(replay.queue).encode())
                     return
                 if parsed.path.startswith("/history/"):
                     prompt_id = parsed.path.rsplit("/", 1)[-1]

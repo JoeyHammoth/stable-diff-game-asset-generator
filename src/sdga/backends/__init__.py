@@ -11,6 +11,7 @@ from .base import (
     JobHandle,
     JobReport,
     PollState,
+    QueueState,
 )
 from .fake import FakeBackend
 
@@ -24,4 +25,5 @@ __all__ = [
     "JobHandle",
     "JobReport",
     "PollState",
+    "QueueState",
 ]

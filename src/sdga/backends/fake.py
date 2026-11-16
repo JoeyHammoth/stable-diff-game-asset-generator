@@ -24,6 +24,7 @@ from .base import (
     JobHandle,
     JobReport,
     PollState,
+    QueueState,
 )
 
 DEFAULT_NODES = frozenset(
@@ -96,7 +97,7 @@ class FakeBackend:
                 f"{request.asset_id} has no render size",
                 remedy="audio assets need the audio backend (phase P4), not the image backend",
             )
-        prompt_id = str(uuid5(NAMESPACE_URL, request.request_hash))
+        prompt_id = _prompt_id(request)
         artifact = ArtifactRef(
             filename=f"{request.asset_id.replace('/', '__')}__{request.seed}.png",
             subfolder="",
@@ -131,6 +132,34 @@ class FakeBackend:
     def cancel(self, handle: JobHandle) -> None:
         self._jobs.pop(handle.prompt_id, None)
 
+    def lookup(self, request: GenerationRequest) -> JobReport | None:
+        prompt_id = _prompt_id(request)
+        if prompt_id not in self._jobs:
+            return None
+        report = self.poll(
+            JobHandle(
+                prompt_id=prompt_id,
+                request_hash=request.request_hash,
+                asset_id=request.asset_id,
+            )
+        )
+        return report if report.state is PollState.SUCCEEDED else None
+
+    def queue(self) -> QueueState:
+        running = tuple(
+            prompt_id
+            for prompt_id, job in self._jobs.items()
+            if self.poll(
+                JobHandle(
+                    prompt_id=prompt_id,
+                    request_hash=job.request.request_hash,
+                    asset_id=job.request.asset_id,
+                )
+            ).state
+            in (PollState.PENDING, PollState.RUNNING)
+        )
+        return QueueState(running=running)
+
     def fetch(self, artifact: ArtifactRef, dest: Path) -> Path:
         request = self._requests.get(artifact.filename)
         if request is None:
@@ -139,6 +168,11 @@ class FakeBackend:
         target.parent.mkdir(parents=True, exist_ok=True)
         _render(request).save(target, format="PNG", optimize=False)
         return target
+
+
+def _prompt_id(request: GenerationRequest) -> str:
+    """The same deterministic id the ComfyUI adapter uses, so a job is one job everywhere."""
+    return str(uuid5(NAMESPACE_URL, request.request_hash))
 
 
 def _render(request: GenerationRequest) -> Image.Image:

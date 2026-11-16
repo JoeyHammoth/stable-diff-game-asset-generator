@@ -78,6 +78,10 @@ backend call. `--force` ignores the cache; `--no-cache` neither reads nor writes
 
 Cache is a flat directory + a JSON index. It must be safe to delete at any time.
 
+Only **raw** artifacts are cached; postprocess and gates re-run on every hit, so a changed
+chain or threshold is re-evaluated instead of being served stale, and a hit is byte-identical to
+a fresh generation. The index stores the file's `sha256`, so a hand-edited artifact is a miss.
+
 ---
 
 ## 3. submit / collect

@@ -1,17 +1,27 @@
-"""Stages 3-5: submit, postprocess, gate (docs/04-pipeline-stages.md §3-§5).
+"""Stages 2-5: resolve, submit/collect, postprocess, gate (docs/04-pipeline-stages.md §2-§5).
 
 One run is one `run.json` plus the raw and postprocessed artifacts it describes. The record
 is the unit of reproducibility: given it, the graph and the model files, a run can be
 replayed exactly.
+
+The record is written incrementally — at the start, and after every completed job — because a
+process can be killed. A run that leaves no trace is a run that has to be redone from zero; a
+record with nine of ten jobs is a run that finishes in one job.
+
+Nothing here retries blindly. The seam declares which failures are retryable
+(`errors.BACKEND_KINDS`), and "CUDA out of memory" is special-cased to exactly one retry with a
+printed remedy, because a second OOM at the same size is predicted, not unlucky.
 """
 
 from __future__ import annotations
 
+import copy
 import json
 import platform
 import secrets
 import time
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -31,6 +41,7 @@ from ..postprocess import OpContext, apply_chain, ninepatch_margins
 from ..review import write_contact_sheet
 from ..specs import load_specs
 from ..validate import DEFAULT_GATES, GateContext, evaluate, failed, severity
+from .cache import ArtifactCache
 
 # Icons have no feet: their content is centred rather than grounded.
 CENTERED_KINDS = frozenset({AssetKind.ICON})
@@ -40,6 +51,12 @@ ACCEPTED = "accepted"
 REJECTED = "rejected"
 FAILED = "failed"
 SUPERSEDED = "superseded"
+
+# A job in one of these states has a postprocessed artifact on disk, so a resume can carry it
+# over instead of generating it again.
+RESUMABLE_STATUSES = frozenset({ACCEPTED, REJECTED, SUPERSEDED})
+
+OOM_MARKERS = ("out of memory", "cuda oom", "allocation on device")
 
 
 def utc_now() -> str:
@@ -60,6 +77,8 @@ class RunOutcome:
     rejected: int
     failed: int
     superseded: int = 0
+    cached: int = 0
+    generated: int = 0
 
 
 def gate_names(recipe: Recipe | None, spec: AssetSpec) -> list[str]:
@@ -168,6 +187,72 @@ def _relative(path: Path, root: Path) -> str:
         return path.as_posix()
 
 
+def _is_out_of_memory(exc: BackendError) -> bool:
+    text = exc.detail.lower()
+    return any(marker in text for marker in OOM_MARKERS)
+
+
+def _generate(
+    config: Config,
+    backend: GenerationBackend,
+    request: GenerationRequest,
+    *,
+    emit: Callable[[str], None],
+    retries: list[dict[str, Any]],
+) -> JobReport:
+    """Submit, wait, and retry only what the error taxonomy says is worth retrying.
+
+    `retries` is the caller's list, appended in place: a run that ends in failure must still
+    record the attempts that were abandoned, or the OOM evidence dies with the exception.
+    """
+    while True:
+        try:
+            handle = backend.submit(request)
+            report = _wait(backend, handle, config)
+            if report.state is PollState.FAILED:
+                raise BackendError(
+                    "execution_error",
+                    report.message or "job failed",
+                    payload=dict(report.error or {}),
+                )
+            if not report.artifacts:
+                raise BackendError(
+                    "bad_output", f"{request.asset_id}: backend returned no artifact"
+                )
+            return report
+        except BackendError as exc:
+            out_of_memory = _is_out_of_memory(exc)
+            # One retry for OOM, whatever the configured allowance: the second failure is
+            # predicted by the first, so a third attempt just burns VRAM again.
+            allowance = 1 if out_of_memory else config.backend.retry_attempts
+            if not exc.retryable or len(retries) >= allowance:
+                raise
+            retries.append(
+                {"kind": exc.kind, "detail": exc.detail[:300], "out_of_memory": out_of_memory}
+            )
+            if out_of_memory:
+                emit(
+                    f"{request.asset_id}: CUDA out of memory - retrying once at concurrency 1. "
+                    "If it recurs, start ComfyUI with --lowvram or lower "
+                    "[style] generation_size."
+                )
+            if config.backend.retry_backoff_s > 0:
+                time.sleep(config.backend.retry_backoff_s)
+
+
+def _already_generated(backend: GenerationBackend, request: GenerationRequest) -> JobReport | None:
+    """Ask the backend whether this prompt finished before we were interrupted."""
+    try:
+        report = backend.lookup(request)
+    except BackendError:
+        # An unreachable server means "unknown", never "failed": falling through to a submit
+        # is the honest response, and the submit will report its own error if there is one.
+        return None
+    if report is not None and report.state is PollState.SUCCEEDED and report.artifacts:
+        return report
+    return None
+
+
 def execute_job(
     config: Config,
     backend: GenerationBackend,
@@ -176,6 +261,11 @@ def execute_job(
     recipe: Recipe | None,
     run_dir: Path,
     palette: tuple[tuple[int, int, int], ...],
+    *,
+    cache: ArtifactCache | None = None,
+    profile_hash: str = "",
+    resume_lookup: bool = False,
+    emit: Callable[[str], None] = print,
 ) -> dict[str, Any]:
     record: dict[str, Any] = {
         "asset_id": request.asset_id,
@@ -189,23 +279,32 @@ def execute_job(
         "params": dict(request.params),
         "refs": [{"role": ref.role.value, "path": ref.path} for ref in request.refs],
         "status": FAILED,
+        "cached": False,
+        "source": "generated",
     }
     started = time.monotonic()
+    retries: list[dict[str, Any]] = []
+    name = spec.slug if max(1, spec.candidates) == 1 else f"{spec.slug}__c{request.candidate}"
+    raw_dest = run_dir / "raw" / f"{name}.png"
 
     try:
-        handle = backend.submit(request)
-        report = _wait(backend, handle, config)
-        if report.state is PollState.FAILED:
-            raise BackendError(
-                "execution_error",
-                report.message or "job failed",
-                payload=dict(report.error or {}),
-            )
-        if not report.artifacts:
-            raise BackendError("bad_output", f"{request.asset_id}: backend returned no artifact")
+        entry = cache.lookup(request.request_hash, profile_hash) if cache is not None else None
+        if cache is not None and entry is not None:
+            raw_path = cache.link(entry, raw_dest)
+            record["cached"] = True
+            record["source"] = "cache"
+        else:
+            report = _already_generated(backend, request) if resume_lookup else None
+            if report is not None:
+                record["source"] = "backend"
+                raw_path = backend.fetch(report.artifacts[0], raw_dest)
+            else:
+                report = _generate(config, backend, request, emit=emit, retries=retries)
+                raw_path = backend.fetch(report.artifacts[0], raw_dest)
+            if cache is not None and profile_hash:
+                cache.store(request.request_hash, profile_hash, raw_path)
 
-        name = spec.slug if max(1, spec.candidates) == 1 else f"{spec.slug}__c{request.candidate}"
-        raw_path = backend.fetch(report.artifacts[0], run_dir / "raw" / f"{name}.png")
+        record["retries"] = retries
         record["raw"] = [{"path": _relative(raw_path, config.root), "sha256": hash_file(raw_path)}]
 
         # Verify it is decodable before spending time on the chain: a corrupt fetch is a
@@ -242,6 +341,7 @@ def execute_job(
             "detail": exc.detail,
             "payload": exc.payload,
         }
+        record["retries"] = retries
         record["status"] = FAILED
     except (OSError, ValueError) as exc:
         # A decode failure or an op that cannot apply (an empty frame, say) is a bad
@@ -251,6 +351,23 @@ def execute_job(
 
     record["timings"] = {"total_s": round(time.monotonic() - started, 3)}
     return record
+
+
+def recorded_status(job: dict[str, Any], spec: AssetSpec) -> str:
+    """Re-derive a carried-over job's status from its gates, so promotion stays honest."""
+    for gate in job.get("gates") or []:
+        if gate.get("status") == "fail" and severity(str(gate.get("gate")), spec.gates) == "error":
+            return REJECTED
+    return ACCEPTED
+
+
+def _post_intact(config: Config, job: dict[str, Any]) -> bool:
+    """A carried-over job counts only if its artifact is still the one it recorded."""
+    post = (job.get("post") or [{}])[0]
+    path = config.root / str(post.get("path") or "")
+    if not post.get("path") or not path.is_file():
+        return False
+    return hash_file(path) == str(post.get("sha256") or "")
 
 
 def promote(jobs: list[dict[str, Any]]) -> None:
@@ -279,6 +396,29 @@ def promote(jobs: list[dict[str, Any]]) -> None:
                     job["status"] = SUPERSEDED
 
 
+def _counts(jobs: Sequence[dict[str, Any]]) -> dict[str, int]:
+    counts = {ACCEPTED: 0, REJECTED: 0, FAILED: 0, SUPERSEDED: 0}
+    for job in jobs:
+        status = str(job.get("status"))
+        if status in counts:
+            counts[status] += 1
+    return counts
+
+
+def _status_for(counts: dict[str, int], *, planned: int, completed: int) -> str:
+    if completed < planned:
+        return "running"
+    if counts[ACCEPTED] >= 1 and counts[REJECTED] == 0 and counts[FAILED] == 0:
+        return "complete"
+    if counts[ACCEPTED] == 0:
+        return "failed"
+    return "partial"
+
+
+def _write_record(run_dir: Path, record: dict[str, Any]) -> None:
+    (run_dir / "run.json").write_text(pretty_json(record), encoding="utf-8")
+
+
 def execute_run(
     config: Config,
     backend: GenerationBackend,
@@ -286,6 +426,9 @@ def execute_run(
     assets: Sequence[str] | None = None,
     recipes: RecipeRegistry | None = None,
     dry_run: bool = False,
+    resume: str | None = None,
+    force: bool = False,
+    use_cache: bool = True,
     emit: Callable[[str], None] = print,
 ) -> RunOutcome:
     registry = recipes if recipes is not None else load_recipes(config)
@@ -300,45 +443,70 @@ def execute_run(
 
     profile = backend.probe()
     palette = palette_for(config)
-    run_id = new_run_id()
-    run_dir = runs_root(config) / run_id
-    (run_dir / "raw").mkdir(parents=True, exist_ok=False)
-    (run_dir / "post").mkdir(parents=True, exist_ok=True)
+    cache = ArtifactCache(
+        config.root / config.project.cache_dir,
+        read=use_cache and not force,
+        write=use_cache,
+    )
 
-    started = utc_now()
-    jobs = [
-        execute_job(
+    previous: dict[str, Any] = {}
+    if resume is not None:
+        run_dir = run_dir_for(config, None if resume in {"", "latest"} else resume)
+        previous = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+        run_id = str(previous.get("run_id") or run_dir.name)
+        (run_dir / "raw").mkdir(parents=True, exist_ok=True)
+        (run_dir / "post").mkdir(parents=True, exist_ok=True)
+    else:
+        run_id = new_run_id()
+        run_dir = runs_root(config) / run_id
+        (run_dir / "raw").mkdir(parents=True, exist_ok=False)
+        (run_dir / "post").mkdir(parents=True, exist_ok=True)
+
+    carried: dict[str, dict[str, Any]] = {}
+    if resume is not None:
+        for job in previous.get("jobs", []):
+            request_hash = str(job.get("request_hash") or "")
+            if (
+                job.get("status") in RESUMABLE_STATUSES
+                and request_hash
+                and _post_intact(config, job)
+            ):
+                carried[request_hash] = job
+
+    def work(request: GenerationRequest) -> dict[str, Any]:
+        spec = by_id[request.asset_id]
+        reusable = carried.get(request.request_hash)
+        if reusable is not None:
+            # Already generated, postprocessed and gated in the interrupted run. Re-running
+            # it would either cost a GPU minute or, worse, produce a different image.
+            job = copy.deepcopy(reusable)
+            job["status"] = recorded_status(job, spec)
+            job["cached"] = True
+            job["source"] = "resume"
+            job["timings"] = {"total_s": 0.0}
+            return job
+        return execute_job(
             config,
             backend,
             request,
-            by_id[request.asset_id],
+            spec,
             registry.for_kind(request.kind),
             run_dir,
             palette,
+            cache=cache,
+            profile_hash=profile.profile_hash,
+            resume_lookup=resume is not None,
+            emit=emit,
         )
-        for request in plan.requests
-    ]
-    promote(jobs)
-    finished = utc_now()
-
-    accepted = sum(1 for job in jobs if job["status"] == ACCEPTED)
-    rejected = sum(1 for job in jobs if job["status"] == REJECTED)
-    failed_count = sum(1 for job in jobs if job["status"] == FAILED)
-    superseded = sum(1 for job in jobs if job["status"] == SUPERSEDED)
-    if jobs and accepted >= 1 and rejected == 0 and failed_count == 0:
-        status = "complete"
-    elif accepted == 0:
-        status = "failed"
-    else:
-        status = "partial"
 
     style = config.style
     record: dict[str, Any] = {
         "schema": SCHEMA,
         "run_id": run_id,
-        "started": started,
-        "finished": finished,
-        "status": status,
+        "started": str(previous.get("started") or utc_now()),
+        "finished": None,
+        "status": "running",
+        "planned": len(plan.requests),
         "tool": {
             "name": "sdga",
             "version": __version__,
@@ -352,18 +520,57 @@ def execute_run(
         },
         "profile": profile.to_dict(),
         "recipes": registry.versions,
-        "reviews": [],
-        "jobs": jobs,
+        "reviews": list(previous.get("reviews", [])),
+        "jobs": [],
     }
+    if resume is not None:
+        record["resumed"] = True
+    # From here on a kill leaves a resumable record rather than an anonymous directory.
+    _write_record(run_dir, record)
+
+    jobs: list[dict[str, Any]] = []
+    workers = max(1, config.backend.max_concurrency)
+    if workers == 1 or len(plan.requests) < 2:
+        for request in plan.requests:
+            jobs.append(work(request))
+            record["jobs"] = jobs
+            _write_record(run_dir, record)
+    else:
+        # The pool size *is* the limiter: no more than `workers` jobs can be between submit
+        # and fetch at once, and the records still land in plan order.
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(work, request) for request in plan.requests]
+            for future in futures:
+                jobs.append(future.result())
+                record["jobs"] = jobs
+                _write_record(run_dir, record)
+
+    promote(jobs)
+    counts = _counts(jobs)
+    record["jobs"] = jobs
+    record["finished"] = utc_now()
+    record["status"] = _status_for(counts, planned=len(plan.requests), completed=len(jobs))
+    _write_record(run_dir, record)
     write_contact_sheet(config, run_dir, record)
-    (run_dir / "run.json").write_text(pretty_json(record), encoding="utf-8")
-    return RunOutcome(run_id, run_dir, status, accepted, rejected, failed_count, superseded)
+
+    return RunOutcome(
+        run_id,
+        run_dir,
+        str(record["status"]),
+        counts[ACCEPTED],
+        counts[REJECTED],
+        counts[FAILED],
+        counts[SUPERSEDED],
+        cached=sum(1 for job in jobs if job.get("source") in {"cache", "resume"}),
+        generated=sum(1 for job in jobs if job.get("source") == "generated"),
+    )
 
 
 __all__ = [
     "ACCEPTED",
     "FAILED",
     "REJECTED",
+    "RESUMABLE_STATUSES",
     "SUPERSEDED",
     "RunOutcome",
     "execute_job",
@@ -374,6 +581,7 @@ __all__ = [
     "op_context",
     "palette_for",
     "promote",
+    "recorded_status",
     "run_dir_for",
     "runs_root",
     "utc_now",

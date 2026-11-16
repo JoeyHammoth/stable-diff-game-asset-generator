@@ -116,6 +116,16 @@ recorded as `warn`.
 **P3 gate:** kill-and-resume test is automated; second full run is all cache hits; a corrupted
 cache entry is detected and regenerated.
 
+*Met:* `tests/test_p3.py` holds the per-ticket tests plus the three gate properties. The
+kill-and-resume test spawns a real subprocess that calls `os._exit` mid-run, then resumes and
+asserts the surviving job's artifact hash is unchanged and only the unfinished jobs were
+generated. `run.json` is now written after every job (and at the start) — without that, a
+killed run leaves no record to resume from, which the test would have caught anyway.
+
+The cache stores **raw** artifacts only, keyed on `request_hash` + `profile_hash`. Postprocess
+and gates re-run on every hit, so changing a chain or a threshold is re-evaluated rather than
+served from cache, and a hit is byte-identical to a fresh generation rather than merely close.
+
 ### P4 · Audio
 
 | # | Ticket | Size | ← | Acceptance |
