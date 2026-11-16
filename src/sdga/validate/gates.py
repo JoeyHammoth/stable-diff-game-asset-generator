@@ -39,6 +39,8 @@ class GateContext:
     kind: AssetKind | None = None
     frames: int = 1
     layout: tuple[int, int] = (1, 1)
+    # False means the asset opted out of the mirroring op; only margins are graded.
+    mirror_ninepatch: bool = True
 
     def threshold(self, name: str, default: float) -> float:
         value = self.thresholds.get(name, default)
@@ -210,10 +212,13 @@ def binary_alpha(image: Image.Image, ctx: GateContext) -> GateResult:
 
 
 def symmetry_9patch(image: Image.Image, ctx: GateContext) -> GateResult:
-    """Bitwise mirror symmetry plus 9-slice margins that cannot overlap.
+    """9-slice margins that cannot overlap, and mirror symmetry when it is required.
 
     `left + right < width` and `top + bottom < height` are the geometric requirement: margins
     that meet leave no stretchable centre, so the slice degenerates when an engine resizes it.
+    An asset that declares `ninepatch: {mirror: false}` skips the mirror comparison but still
+    has to be roomy; that is how a deliberately asymmetric frame ships without weakening the
+    default.
     """
     source = image.convert("RGBA")
     width, height = source.size
@@ -226,9 +231,14 @@ def symmetry_9patch(image: Image.Image, ctx: GateContext) -> GateResult:
     # Each pair is checked against its own edge: a 31px left/right margin is legal on a
     # 64px-wide button even though the button is only 16px tall.
     roomy = left + right < width and top + bottom < height
+    mirror_ok = symmetric or not ctx.mirror_ninepatch
+    if not ctx.mirror_ninepatch:
+        detail = "asymmetric; margins within edges" if roomy else "margins overlap"
+    else:
+        detail = "mirror-exact" if symmetric else "not mirror-symmetric"
     return GateResult(
         "symmetry_9patch",
-        PASS if symmetric and roomy else FAIL,
+        PASS if mirror_ok and roomy else FAIL,
         value=[left, top, right, bottom],
         threshold={
             "max_left": left,
@@ -236,8 +246,9 @@ def symmetry_9patch(image: Image.Image, ctx: GateContext) -> GateResult:
             "max_top": top,
             "max_bottom": bottom,
             "symmetric": symmetric,
+            "mirror_required": ctx.mirror_ninepatch,
         },
-        detail="mirror-exact" if symmetric else "not mirror-symmetric",
+        detail=detail,
     )
 
 

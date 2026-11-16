@@ -9,7 +9,8 @@ It is deliberately separate from both ends of the problem:
 - **Not part of ComfyUI.** Nothing in this repo imports ComfyUI. It is a client of a remote
   ComfyUI (same machine, a GPU box on the LAN, or a recorded fixture server in CI).
 - **Not part of Godot.** It emits a pack (`pack.json` + files + provenance). An engine importer —
-  a separate concern — consumes it. No Godot binary is required to generate or validate art.
+  a separate concern — consumes it; `examples/godot/` is an optional consumer sample, never part
+  of the generator or its CI. No Godot binary is required to generate or validate art.
 
 Everything after the sampler is deterministic and versioned here: palette locking, grid
 downscaling, sprite anchoring, 9-slice symmetry, depth→normal conversion, loop crossfading,
@@ -18,8 +19,10 @@ an opinion.
 
 ## Status
 
-**Design complete; implementation not yet started.** Start at
-[docs/README.md](docs/README.md).
+**P0–P5 implemented and CI-verified** on a GPU-less runner: generation, caching, resume,
+review, publishing, audit, and the optional Godot adapter. Start at
+[docs/README.md](docs/README.md); the build history and acceptance evidence are in
+[docs/06-implementation-plan.md](docs/06-implementation-plan.md).
 
 | | |
 |---|---|

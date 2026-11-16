@@ -11,6 +11,8 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from _project import TOML as BASE_TOML
+from _project import make_project
 from PIL import Image
 
 from sdga.backends.comfyui import ComfyUIBackend, load_recipes
@@ -251,6 +253,60 @@ def test_an_asymmetric_button_fails_the_gate():
     _block(image, (0, 0, 10, 16), (200, 72, 72, 255))
 
     assert symmetry_9patch(image, GateContext(size=(64, 16))).status == "fail"
+
+
+def test_an_asymmetric_button_passes_when_mirroring_is_off():
+    image = Image.new("RGBA", (64, 16))
+    _block(image, (0, 0, 10, 16), (200, 72, 72, 255))
+    context = GateContext(size=(64, 16), kind=AssetKind.UI_ELEMENT, mirror_ninepatch=False)
+
+    result = symmetry_9patch(image, context)
+
+    assert result.status == "pass", result.to_dict()
+    left, _top, right, _bottom = result.value
+    assert left != right
+    assert result.threshold["mirror_required"] is False
+
+
+def test_disabling_mirroring_skips_the_op_and_records_it(tmp_path: Path):
+    root = make_project(
+        tmp_path / "unmirrored",
+        toml=BASE_TOML,
+        assets={
+            "assets/ui.yaml": "schema: 1\nassets:\n"
+            + "  - id: ui/button_normal\n"
+            + "    kind: ui_element\n"
+            + "    prompt: asymmetric stone button\n"
+            + "    size: [64, 16]\n"
+            + "    ninepatch: { mirror: false }\n"
+        },
+    )
+    config = load_config(root)
+    outcome = execute_run(config, make_backend(config), assets=["ui/button_normal"])
+    record = json.loads((outcome.run_dir / "run.json").read_text(encoding="utf-8"))
+    job = record["jobs"][0]
+
+    assert "ninepatch_mirror" not in job["postprocess"]
+    assert job["ui"]["mirror"] is False
+
+
+def test_a_spec_can_opt_out_of_ninepatch_mirroring(tmp_path: Path):
+    root = make_project(
+        tmp_path / "asymmetric",
+        toml=BASE_TOML,
+        assets={
+            "assets/ui.yaml": "schema: 1\nassets:\n"
+            + "  - id: ui/button_normal\n"
+            + "    kind: ui_element\n"
+            + "    prompt: asymmetric stone button\n"
+            + "    size: [64, 16]\n"
+            + "    ninepatch: { mirror: false }\n"
+        },
+        with_recipes=False,
+    )
+
+    spec = load_specs(load_config(root))[0]
+    assert spec.ninepatch_mirror is False
 
 
 def test_ui_margins_reach_the_pack(project: Path):

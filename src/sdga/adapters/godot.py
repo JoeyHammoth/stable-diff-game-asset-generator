@@ -10,8 +10,8 @@ Four artifacts, all schema-tagged and deterministic:
   (the uniform border found by the gate); Godot wants four edges, so each pair is applied to
   both sides.
 * `sprite_frames.json` — an `AnimatedSprite2D` `SpriteFrames` descriptor: frame size, grid and
-  the frame list. The animation clock is an adapter option (`--fps`, default 8), because the pack
-  deliberately carries layout but not playback speed.
+  named clips, each with its own speed, loop flag and ping-pong expansion. A clip without an
+  explicit speed inherits `--fps` (default 8); the pack carries layout, the spec carries playback.
 * `audio_buses.json` — the bus each track belongs to, plus loop points in seconds and frames.
 
 A malformed advisory hint is an error with a remedy, never a guessed default that would ship a
@@ -272,7 +272,7 @@ def _animation_clips(clips: Any, frames: int, asset_id: str, fps: int) -> dict[s
             "default": {
                 "frames": list(range(frames)),
                 "loop": True,
-                "speed": fps,
+                "speed": float(fps),
             }
         }
     if not isinstance(clips, list):
@@ -301,10 +301,25 @@ def _animation_clips(clips: Any, frames: int, asset_id: str, fps: int) -> dict[s
                 f"{asset_id}: animation {name!r} covers frames {start}..{start}+{count} "
                 f"outside 0..{frames}"
             )
+        clip_fps = clip.get("fps")
+        if clip_fps is not None and (
+            isinstance(clip_fps, bool) or not isinstance(clip_fps, (int, float)) or clip_fps <= 0
+        ):
+            _fail(f"{asset_id}: animation {name!r} fps must be a positive number")
+        loop = clip.get("loop", True)
+        if not isinstance(loop, bool):
+            _fail(f"{asset_id}: animation {name!r} loop must be true or false")
+        ping_pong = clip.get("ping_pong", False)
+        if not isinstance(ping_pong, bool):
+            _fail(f"{asset_id}: animation {name!r} ping_pong must be true or false")
+        sequence = list(range(start, start + count))
+        if ping_pong and count > 2:
+            # Standard ping-pong: reverse without repeating either endpoint.
+            sequence += sequence[-2:0:-1]
         named[name] = {
-            "frames": list(range(start, start + count)),
-            "loop": True,
-            "speed": fps,
+            "frames": sequence,
+            "loop": loop,
+            "speed": float(fps if clip_fps is None else clip_fps),
         }
     if not named:
         _fail(f"{asset_id}: sprite.animations is empty; omit it to get a default clip")

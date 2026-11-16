@@ -152,6 +152,20 @@ class SpecSource:
 
 
 @dataclass(frozen=True)
+class AnimationClip:
+    """One named clip's frames and playback settings.
+
+    Playback is presentation, not generation: a clip never enters `request_hash`.
+    """
+
+    start: int
+    count: int
+    fps: float | None = None
+    loop: bool = True
+    ping_pong: bool = False
+
+
+@dataclass(frozen=True)
 class AssetSpec:
     """One human-authored asset description. Data, reviewed like code."""
 
@@ -165,8 +179,10 @@ class AssetSpec:
     music: Mapping[str, Any] | None = None
     frames: int | None = None
     layout: tuple[int, int] | None = None
-    # name -> (start frame, frame count). Empty means one `default` clip over every frame.
-    animations: Mapping[str, tuple[int, int]] = field(default_factory=dict)
+    # Empty means one `default` clip over every frame.
+    animations: Mapping[str, AnimationClip] = field(default_factory=dict)
+    # UI only: mirroring keeps a 9-slice safe to stretch; disabling it allows asymmetry.
+    ninepatch_mirror: bool = True
     references: Mapping[str, str] = field(default_factory=dict)
     params: Mapping[str, Any] = field(default_factory=dict)
     gates: Mapping[str, Any] = field(default_factory=dict)

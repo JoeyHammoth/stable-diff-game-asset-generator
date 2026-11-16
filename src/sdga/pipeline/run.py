@@ -135,6 +135,7 @@ def gate_context(
         kind=spec.kind,
         frames=spec.frames or 1,
         layout=spec.layout or (1, 1),
+        mirror_ninepatch=spec.ninepatch_mirror,
     )
 
 
@@ -584,9 +585,16 @@ def execute_job(
         "layout": list(spec.layout) if spec.layout else None,
         # Playback metadata, not generation input: it changes the pack, never the request hash.
         "animations": [
-            {"name": name, "start": start, "count": count}
-            for name, (start, count) in sorted(
-                spec.animations.items(), key=lambda item: (item[1][0], item[0])
+            {
+                "name": name,
+                "start": clip.start,
+                "count": clip.count,
+                **({"fps": clip.fps} if clip.fps is not None else {}),
+                **({"loop": False} if not clip.loop else {}),
+                **({"ping_pong": True} if clip.ping_pong else {}),
+            }
+            for name, clip in sorted(
+                spec.animations.items(), key=lambda item: (item[1].start, item[0])
             )
         ]
         or None,
@@ -628,6 +636,9 @@ def execute_job(
             image = opened.convert("RGBA")
 
         chain = list(recipe.postprocess) if recipe is not None else []
+        if spec.kind in MARGIN_KINDS and not spec.ninepatch_mirror:
+            # Asymmetric frames opt out of the mirroring op; the gate still checks margins.
+            chain = [name for name in chain if name != "ninepatch_mirror"]
         processed = apply_chain(image, chain, op_context(config, spec, palette))
         post_path = run_dir / "post" / f"{name}.png"
         processed.save(post_path, format="PNG")
@@ -643,7 +654,10 @@ def execute_job(
         record["postprocess"] = chain
         if spec.kind in MARGIN_KINDS:
             # Recorded, not guessed: the pack and the gate both read these margins.
-            record["ui"] = {"margins": list(ninepatch_margins(processed))}
+            record["ui"] = {
+                "margins": list(ninepatch_margins(processed)),
+                "mirror": spec.ninepatch_mirror,
+            }
 
         results = evaluate(gate_names(recipe, spec), processed, gate_context(config, spec, palette))
         record["gates"] = [result.to_dict() for result in results]
