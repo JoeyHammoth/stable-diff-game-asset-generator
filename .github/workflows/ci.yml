@@ -116,7 +116,8 @@ jobs:
           sprite = sprites["sprites"]["char/ranger_walk"]
           assert sprite["frames"] > 1, sprite
           assert len(sprite["frame_size"]) == 2
-          assert sprite["animations"]["default"]["frames"] == list(range(sprite["frames"]))
+          covered = [index for clip in sprite["animations"].values() for index in clip["frames"]]
+          assert sorted(covered) == list(range(sprite["frames"])), sprite["animations"]
           pack = json.loads(
               sorted(pathlib.Path("examples/packs").glob("*/pack.json"))[-1].read_text(encoding="utf-8")
           )
