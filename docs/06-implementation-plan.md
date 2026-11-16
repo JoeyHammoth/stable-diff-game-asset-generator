@@ -159,6 +159,13 @@ decisions the plan did not spell out, all made by running the pipeline:
   `tests/test_p4_bed.py` covers both, including a local MusicGen stub over real HTTP and a dead
   service failing the run instead of silently dropping the bed.
 
+  Verified against a real service (`tools/musicgen_server.py`, `facebook/musicgen-small` on an
+  RTX 4060, 32 kHz): two 4-bar tracks (6.86 s at 140 bpm, 10.67 s at 90 bpm) were accepted, every
+  gate passed with `wrap is continuous`, the pack recorded `bed: musicgen` and
+  `facebook/musicgen-small`, and a second run served both beds from cache in 4 s instead of 28 s,
+  with byte-identical posts. That is the point of caching the bed: the expensive, model-produced
+  half is paid for once, while the deterministic melody and mix are re-evaluated.
+
 The offline `synth` backend is a real instrument, not a test double: it is deterministic, needs
 no soundfont or binary, and is what makes the whole audio path runnable in CI. `fluidsynth`
 stays available and is capability-gated with a named remedy.
