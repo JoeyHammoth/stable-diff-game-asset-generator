@@ -65,3 +65,8 @@ sample_rate = 32000
 soundfont = ""
 positive_anchors = ["orchestral game soundtrack", "cinematic", "loopable texture"]
 negative_anchors = ["distortion", "noise", "harsh transients"]
+
+# The backing bed sits under the authored melody. "texture" is offline and deterministic,
+# so the bed path runs in CI; "musicgen" points at a local MusicGen service (see docs/04 §10).
+bed = "texture"
+bed_gain_db = -9.0

@@ -73,6 +73,10 @@ sample_rate = 32000
 soundfont = ""                     # project-relative .sf2; required by fluidsynth
 positive_anchors = ["orchestral game soundtrack", "loopable texture"]
 negative_anchors = ["distortion", "noise"]
+bed = "texture"                    # none (melody alone) | texture (offline) | musicgen
+bed_url = "http://127.0.0.1:8765"  # musicgen service; contract in 04 §Audio
+bed_timeout_s = 600.0
+bed_gain_db = -9.0                 # fixed gain of the bed under the melody
 ```
 
 ### What the Style Contract hash covers

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .audio.base import AudioBackend
+from .audio.bed import BedBackend
 from .backends import BackendProfile, GenerationBackend
 from .config import Config
 from .errors import BackendError
@@ -96,6 +97,7 @@ def run(
     requirements: Sequence[Requirement] = (),
     *,
     audio: AudioBackend | None = None,
+    bed: BedBackend | None = None,
 ) -> Report:
     checks: list[Check] = []
     style = config.style
@@ -151,6 +153,8 @@ def run(
 
     if audio is not None:
         checks.extend(_audio_checks(audio))
+    if bed is not None and bed.kind != "none":
+        checks.extend(_bed_checks(bed))
 
     return Report(checks=tuple(checks), profile=profile)
 
@@ -167,7 +171,27 @@ def _audio_checks(audio: AudioBackend) -> list[Check]:
         checks.append(
             Check(
                 f"audio:{gap.item}",
-                FAIL if gap.kind in {"model", "tool"} else WARN,
+                FAIL if gap.kind in {"model", "tool", "service"} else WARN,
+                gap.detail or gap.kind,
+                remedy=gap.remedy or None,
+            )
+        )
+    return checks
+
+
+def _bed_checks(bed: BedBackend) -> list[Check]:
+    """The bed half of doctor: which texture source this soundtrack would use, or why not."""
+    try:
+        profile = bed.probe()
+    except BackendError as exc:
+        return [Check("audio:bed", FAIL, exc.message, remedy=exc.remedy)]
+    detail = f"{profile.kind} {profile.version}".strip()
+    checks = [Check("audio:bed", PASS, detail or profile.kind)]
+    for gap in profile.gaps:
+        checks.append(
+            Check(
+                f"audio:bed:{gap.item}",
+                FAIL if gap.kind in {"model", "tool", "service"} else WARN,
                 gap.detail or gap.kind,
                 remedy=gap.remedy or None,
             )

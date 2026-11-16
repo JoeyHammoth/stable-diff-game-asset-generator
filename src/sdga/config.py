@@ -61,7 +61,17 @@ _BACKEND_KEYS = {
 _RETRY_KEYS = {"attempts", "backoff_s"}
 _PACK_KEYS = {"id_template", "require_review", "include_raw"}
 _GATES_KEYS = {"on_fail", "thresholds"}
-_AUDIO_KEYS = {"kind", "sample_rate", "soundfont", "positive_anchors", "negative_anchors"}
+_AUDIO_KEYS = {
+    "kind",
+    "sample_rate",
+    "soundfont",
+    "positive_anchors",
+    "negative_anchors",
+    "bed",
+    "bed_url",
+    "bed_timeout_s",
+    "bed_gain_db",
+}
 
 _GPL_LINE = re.compile(r"^\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\b")
 
@@ -116,6 +126,11 @@ class AudioConfig:
     soundfont: str = ""
     positive_anchors: tuple[str, ...] = ()
     negative_anchors: tuple[str, ...] = ()
+    # The backing bed: a texture under the authored melody, never a second tune.
+    bed: str = "none"
+    bed_url: str = "http://127.0.0.1:8765"
+    bed_timeout_s: float = 600.0
+    bed_gain_db: float = -9.0
 
 
 @dataclass(frozen=True)
@@ -485,12 +500,26 @@ def load_config(project: str | Path) -> Config:
     if not isinstance(raw_soundfont, str):
         raise ConfigError("soundfont must be a path or an empty string", location=audio_where)
     soundfont = _relative(raw_soundfont, audio_where, "soundfont") if raw_soundfont.strip() else ""
+    bed = _str(audio_table, "bed", audio_where, default="none")
+    if bed not in {"none", "texture", "musicgen"}:
+        raise ConfigError(
+            f"unknown bed backend {bed!r}",
+            location=audio_where,
+            remedy=(
+                "known kinds: none (melody alone), texture (offline), musicgen (HTTP "
+                "service at bed_url)"
+            ),
+        )
     audio_cfg = AudioConfig(
         kind=audio_kind,
         sample_rate=sample_rate,
         soundfont=soundfont,
         positive_anchors=_string_list(audio_table, "positive_anchors", audio_where),
         negative_anchors=_string_list(audio_table, "negative_anchors", audio_where),
+        bed=bed,
+        bed_url=_str(audio_table, "bed_url", audio_where, default="http://127.0.0.1:8765"),
+        bed_timeout_s=_num(audio_table, "bed_timeout_s", audio_where, default=600.0),
+        bed_gain_db=_num(audio_table, "bed_gain_db", audio_where, default=-9.0),
     )
 
     pack_table = _table(raw, "pack", where, required=False)

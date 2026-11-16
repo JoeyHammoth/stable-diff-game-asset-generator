@@ -82,6 +82,9 @@ jobs:
               gates = {gate["gate"]: gate["status"] for gate in job["gates"]}
               assert gates["beat_alignment"] == "pass", (job["asset_id"], gates)
               assert gates["audio_loop_seam"] == "pass", (job["asset_id"], gates)
+              # examples/ uses bed = "texture": the offline bed path is the CI gate for the
+              # mix, not a feature only exercised on a developer machine.
+              assert job["bed"]["kind"] == "texture", (job["asset_id"], job.get("bed"))
               # The loop point is the solved bar length; the file is quantised to whole
               # samples, so allow one sample of rounding rather than demanding equality.
               assert abs(job["loop"]["end_s"] - job["post"][0]["duration_s"]) <= 1e-3

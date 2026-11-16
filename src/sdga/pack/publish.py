@@ -118,6 +118,9 @@ def _engine_hints(
                 "crossfade_s": loop.get("crossfade_s", 0.0),
             },
         }
+        bed = job.get("bed")
+        if bed:
+            hints["music"]["bed"] = {"kind": bed.get("kind"), "gain_db": bed.get("gain_db")}
     if kind == "sfx" and files and files[0].get("duration_s"):
         hints["sfx"] = {"duration_s": files[0]["duration_s"], "one_shot": True}
     return hints
@@ -284,6 +287,10 @@ def _write_licenses(pack_dir: Path, config: Config, run: Mapping[str, Any]) -> N
         lines.append(
             f"- audio backend: `{audio.get('kind')}` {version} @ {audio.get('sample_rate')} Hz"
         )
+        bed = audio.get("bed") or {}
+        if bed:
+            bed_version = bed.get("version") or ""
+            lines.append(f"- bed: `{bed.get('kind')}` {bed_version}".rstrip())
     lines.extend(
         [
             "",
