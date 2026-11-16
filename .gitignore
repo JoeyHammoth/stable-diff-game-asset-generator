@@ -8,6 +8,7 @@ dist/
 .venv-musicgen/
 /adapters/
 examples/adapters/
+examples/godot/.godot/
 venv/
 .pytest_cache/
 .ruff_cache/

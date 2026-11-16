@@ -128,9 +128,11 @@ jobs:
               "right": ui["engine"]["ui"]["margins"][2],
               "bottom": ui["engine"]["ui"]["margins"][3],
           }, ninepatch
-          assert sprites["sprites"]["char/ranger_walk"]["animations"]["walk"]["frames"] == list(
-              range(8)
-          )
+          walk = sprites["sprites"]["char/ranger_walk"]["animations"]["walk"]
+          assert walk["frames"] == list(range(8))
+          assert walk["speed"] == 10.0, walk
+          assert walk["loop"] is True, walk
+          assert ui["engine"]["ui"]["mirror"] is True, ui
           assert buses["assets"]["music/title"]["bus"] == "Music"
           assert buses["assets"]["sfx/pickup"]["bus"] == "SFX"
           assert hints["files"]["assets/music/title.wav"]["loop_end_frame"] > 0

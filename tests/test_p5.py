@@ -22,7 +22,8 @@ from sdga.adapters import adapt_godot, build_godot_bundle
 from sdga.canonical import hash_file, pretty_json
 from sdga.cli import main
 from sdga.config import load_config
-from sdga.errors import EXIT_FAILURE, SdgaError
+from sdga.errors import EXIT_FAILURE, SdgaError, SpecError
+from sdga.model import AnimationClip
 from sdga.specs import load_specs
 
 PACK_ID = "demo-2026-01-01-01"
@@ -189,7 +190,79 @@ def test_specs_parse_named_animations(tmp_path: Path):
         with_recipes=False,
     )
     spec = load_specs(load_config(root))[0]
-    assert dict(spec.animations) == {"walk": (0, 2), "idle": (2, 2)}
+    assert spec.animations == {
+        "walk": AnimationClip(0, 2),
+        "idle": AnimationClip(2, 2),
+    }
+
+
+def test_clip_playback_settings_parse_and_default(tmp_path: Path):
+    root = make_project(
+        tmp_path / "playback",
+        toml=BASE_TOML,
+        assets={
+            "assets/char.yaml": YAML_HEADER
+            + "  - id: char/hero_walk\n"
+            + "    kind: sprite_sheet\n"
+            + "    prompt: walking hero\n"
+            + "    size: [32, 32]\n"
+            + "    frames: 4\n"
+            + "    layout: { cols: 4, rows: 1 }\n"
+            + "    animations:\n"
+            + "      walk: { start: 0, count: 2, fps: 6.5, loop: false, ping_pong: true }\n"
+            + "      idle: [2, 2]\n"
+        },
+        with_recipes=False,
+    )
+    spec = load_specs(load_config(root))[0]
+    assert spec.animations["walk"] == AnimationClip(0, 2, fps=6.5, loop=False, ping_pong=True)
+    assert spec.animations["idle"] == AnimationClip(2, 2)
+
+
+def test_a_non_positive_clip_fps_is_a_spec_error(tmp_path: Path):
+    root = make_project(
+        tmp_path / "badclip",
+        toml=BASE_TOML,
+        assets={
+            "assets/char.yaml": YAML_HEADER
+            + "  - id: char/hero_walk\n"
+            + "    kind: sprite_sheet\n"
+            + "    prompt: walking hero\n"
+            + "    size: [32, 32]\n"
+            + "    frames: 4\n"
+            + "    layout: { cols: 4, rows: 1 }\n"
+            + "    animations:\n"
+            + "      walk: { start: 0, count: 2, fps: 0 }\n"
+        },
+        with_recipes=False,
+    )
+    with pytest.raises(SpecError, match="fps must be a positive number"):
+        load_specs(load_config(root))
+
+
+def test_clip_speed_loop_and_ping_pong_reach_sprite_frames(tmp_path: Path):
+    pack = _fixture_pack(tmp_path)
+    manifest = json.loads((pack / "pack.json").read_text(encoding="utf-8"))
+    manifest["assets"][1]["engine"]["sprite"]["animations"] = [
+        {
+            "name": "walk",
+            "start": 0,
+            "count": 3,
+            "fps": 5,
+            "loop": False,
+            "ping_pong": True,
+        }
+    ]
+    (pack / "pack.json").write_text(pretty_json(manifest), encoding="utf-8")
+
+    adapt_godot(pack, tmp_path / "out", fps=12)
+
+    animation = _read(tmp_path / "out", "sprite_frames.json")["sprites"]["char/hero_walk"][
+        "animations"
+    ]["walk"]
+    assert animation["frames"] == [0, 1, 2, 1]
+    assert animation["speed"] == 5.0
+    assert animation["loop"] is False
 
 
 def test_sprite_frames_lists_every_frame_at_the_adapter_fps(tmp_path: Path):

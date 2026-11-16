@@ -121,7 +121,9 @@ assets:
     size: [32, 32]          # per cell
     frames: 8
     layout: { cols: 8, rows: 1 }
-    animations: { walk: [0, 8] }
+    animations:
+      walk: { start: 0, count: 8, fps: 10, loop: true }
+      idle: [8, 2]
     references:
       style_anchor: concepts/cleaned/ranger_front.png
       pose: style/skeletons/walk_8frame.png
@@ -134,6 +136,7 @@ assets:
     prompt: >-
       rounded stone button, empty center, no text, 9-slice friendly frame
     size: [64, 16]
+    ninepatch: { mirror: true }   # false ships an authored asymmetric frame
     references:
       wireframe: style/wireframes/button_64x16.png
     gates: { symmetry_9patch: error, alpha_required: error }
@@ -155,7 +158,8 @@ assets:
 | `size` | final size in **pixels**; for `sprite_sheet` it is the **cell** size |
 | `frames` | required iff kind produces an animation |
 | `layout.cols * layout.rows` | must equal `frames` |
-| `animations` | `sprite_sheet` only: `{name: [start, count]}`; every clip stays within `frames`; omitted → one `default` clip over every frame |
+| `animations` | `sprite_sheet` only: `{name: [start, count]}` or `{name: {start, count, fps?, loop?, ping_pong?}}`; every clip stays within `frames`; omitted → one `default` clip over every frame |
+| `ninepatch` | `ui_element`/`icon` only: `{mirror: bool}`; `false` skips the mirror op and grades margins only; default `true` |
 | `references.*` | role must be a known role; path must exist at plan time |
 | `depends_on` | ids must exist; the graph must be acyclic (checked) |
 | `params` | merged over `defaults.params`; unknown keys passed through to `${params.*}` |
@@ -381,7 +385,9 @@ side by side, relative paths only, no scripts.
 
 `engine` is **advisory**. Consumers may ignore it. It exists so the pack carries the facts an
 engine needs (tile size, seamlessness, 9-slice margins, frame layout, loop points) without the
-producer knowing which engine reads it.
+producer knowing which engine reads it. A `sprite` hint's `animations` entries are
+`{name, start, count}` plus optional `fps`, `loop: false`, and `ping_pong: true`; a `ui` hint
+carries all four margins and whether the frame was mirrored.
 
 ---
 

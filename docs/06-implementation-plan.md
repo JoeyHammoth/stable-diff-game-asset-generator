@@ -193,6 +193,19 @@ animation clock does not invalidate the soundtrack or the images. Clip names are
 spec (`animations: {walk: [0, 8]}`) and stay outside the request hash, because naming a clip is
 playback metadata, not generation input: it must never regenerate a sheet that is already good.
 
+Three follow-ups closed the adapter's remaining limits:
+
+- Clips may carry their own `fps`, `loop`, and `ping_pong`. Ping-pong is expanded into a frame
+  sequence (reverse without repeating endpoints) because `SpriteFrames` has no ping-pong flag;
+  a clip without `fps` inherits `--fps`. Both the record and the pack stay additive, so older
+  clips with only `start`/`count` still adapt.
+- A UI spec can declare `ninepatch: {mirror: false}`. The run drops `ninepatch_mirror` from that
+  asset's chain, `symmetry_9patch` grades only margin roominess, and the pack records
+  `engine.ui.mirror`. The default stays mirrored: an arbitrary frame is not safe to stretch.
+- `examples/godot/` is an optional runtime consumer, verified here against Godot 4.4.1 headless:
+  it rebuilt the `walk` clip at 10 fps and the four margins (31/7/31/7) with real engine objects,
+  and resolved the `Music`/`SFX` buses. It is not part of the generator or its GPU-less CI gate.
+
 ---
 
 ## 4. Frontier: what to start on Monday

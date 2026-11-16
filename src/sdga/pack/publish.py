@@ -96,10 +96,15 @@ def _engine_hints(
         if clips:
             hints["sprite"]["animations"] = list(clips)
 
-    margins = (job.get("ui") or {}).get("margins")
+    ui_job = job.get("ui") or {}
+    margins = ui_job.get("margins")
     if kind in {"ui_element", "icon"} and margins:
-        # The gate already proved 2*max(margin) < edge; an engine can stretch the centre.
-        hints["ui"] = {"margins": list(margins), "ninepatch": True}
+        # The gate already proved left + right < width and top + bottom < height.
+        hints["ui"] = {
+            "margins": list(margins),
+            "ninepatch": True,
+            "mirror": bool(ui_job.get("mirror", True)),
+        }
 
     if kind == "normal_map":
         hints["normal"] = {

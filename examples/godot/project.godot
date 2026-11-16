@@ -1,0 +1,14 @@
+; A minimal Godot 4 project used to exercise the adapter output.
+; It is a consumer sample, not part of the generator or its CI gate.
+
+config_version=5
+
+[application]
+
+config/name="sdga adapter sample"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

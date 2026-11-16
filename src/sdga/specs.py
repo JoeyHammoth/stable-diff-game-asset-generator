@@ -21,6 +21,7 @@ from .config import Config
 from .errors import ConfigError, SpecError
 from .model import (
     SCHEMA,
+    AnimationClip,
     AssetKind,
     AssetSpec,
     ReferenceRole,
@@ -43,6 +44,7 @@ _ASSET_KEYS = {
     "frames",
     "layout",
     "animations",
+    "ninepatch",
     "references",
     "params",
     "gates",
@@ -53,6 +55,9 @@ _ASSET_KEYS = {
     "music",
 }
 _LAYOUT_KEYS = {"cols", "rows"}
+_CLIP_KEYS = {"start", "count", "fps", "loop", "ping_pong"}
+_NINEPATCH_KEYS = {"mirror"}
+_MARGIN_KINDS = {AssetKind.UI_ELEMENT, AssetKind.ICON}
 
 _PROMPT_OPTIONAL_KINDS = {AssetKind.NORMAL_MAP}
 _ANIMATED_KINDS = {AssetKind.SPRITE_SHEET}
@@ -263,6 +268,7 @@ def _parse_asset(
 
     layout = _layout(raw.get("layout"), frames, kind, where)
     animations = _animations(raw.get("animations"), frames, kind, where)
+    ninepatch_mirror = _ninepatch(raw.get("ninepatch"), kind, where)
 
     references = _references(raw.get("references"), where, config)
     duration_s = _duration(raw.get("duration_s"), where)
@@ -327,6 +333,7 @@ def _parse_asset(
         frames=frames,
         layout=layout,
         animations=animations,
+        ninepatch_mirror=ninepatch_mirror,
         references=references,
         params=merged_params,
         gates=gates,
@@ -383,8 +390,12 @@ def _music(value: Any, kind: AssetKind, where: str) -> dict[str, Any] | None:
 
 def _animations(
     value: Any, frames: int | None, kind: AssetKind, where: str
-) -> dict[str, tuple[int, int]]:
-    """Named clips as `name: [start, count]`, checked against the sheet's frame total."""
+) -> dict[str, AnimationClip]:
+    """Named clips, checked against the sheet's frame total.
+
+    A clip is either `[start, count]` or a mapping with `start`, `count` and optional
+    `fps`, `loop`, `ping_pong`. Playback settings never reach the request hash.
+    """
     if value is None:
         return {}
     if kind not in _ANIMATED_KINDS:
@@ -394,37 +405,105 @@ def _animations(
             remedy="remove animations, or change the kind",
         )
     if not isinstance(value, dict):
-        raise SpecError("animations must be a mapping of name to [start, count]", location=where)
-    clips: dict[str, tuple[int, int]] = {}
-    for name, clip in value.items():
+        raise SpecError(
+            "animations must be a mapping of name to [start, count] or a clip mapping",
+            location=where,
+        )
+    clips: dict[str, AnimationClip] = {}
+    for name, raw_clip in value.items():
         if not isinstance(name, str) or not _ANIMATION_NAME.match(name):
             raise SpecError(
                 f"invalid animation name {name!r}",
                 location=where,
                 remedy="use lower-case letters, digits and underscores",
             )
-        if not isinstance(clip, list) or len(clip) != 2:
-            raise SpecError(f"animation {name!r} must be [start, count]", location=where)
-        start, count = clip
-        if (
-            isinstance(start, bool)
-            or isinstance(count, bool)
-            or not isinstance(start, int)
-            or not isinstance(count, int)
-            or start < 0
-            or count < 1
-        ):
+        clip = _clip(name, raw_clip, where)
+        if frames is None or clip.start + clip.count > frames:
             raise SpecError(
-                f"animation {name!r} needs a start >= 0 and a count >= 1", location=where
-            )
-        if frames is None or start + count > frames:
-            raise SpecError(
-                f"animation {name!r} covers frames {start}..{start + count} "
+                f"animation {name!r} covers frames {clip.start}..{clip.start + clip.count} "
                 f"but the sheet has {frames or 0}",
                 location=where,
             )
-        clips[name] = (start, count)
+        clips[name] = clip
     return clips
+
+
+def _clip(name: str, value: Any, where: str) -> AnimationClip:
+    if isinstance(value, list):
+        if len(value) != 2:
+            raise SpecError(f"animation {name!r} must be [start, count]", location=where)
+        start, count = value
+        fps: Any = None
+        loop = True
+        ping_pong = False
+    elif isinstance(value, dict):
+        for key in value:
+            if key not in _CLIP_KEYS:
+                raise SpecError(
+                    f"unknown clip key {key!r}{_suggest(key, _CLIP_KEYS)}", location=where
+                )
+        if "start" not in value or "count" not in value:
+            raise SpecError(
+                f"animation {name!r} needs 'start' and 'count'",
+                location=where,
+                remedy="for example: {start: 0, count: 8, fps: 12, loop: true}",
+            )
+        start = value["start"]
+        count = value["count"]
+        fps = value.get("fps")
+        loop = value.get("loop", True)
+        ping_pong = value.get("ping_pong", False)
+    else:
+        raise SpecError(
+            f"animation {name!r} must be [start, count] or a clip mapping", location=where
+        )
+
+    if (
+        isinstance(start, bool)
+        or isinstance(count, bool)
+        or not isinstance(start, int)
+        or not isinstance(count, int)
+        or start < 0
+        or count < 1
+    ):
+        raise SpecError(f"animation {name!r} needs a start >= 0 and a count >= 1", location=where)
+    if fps is not None and (isinstance(fps, bool) or not isinstance(fps, (int, float)) or fps <= 0):
+        raise SpecError(f"animation {name!r} fps must be a positive number", location=where)
+    if not isinstance(loop, bool):
+        raise SpecError(f"animation {name!r} loop must be true or false", location=where)
+    if not isinstance(ping_pong, bool):
+        raise SpecError(f"animation {name!r} ping_pong must be true or false", location=where)
+    return AnimationClip(
+        start=int(start),
+        count=int(count),
+        fps=None if fps is None else float(fps),
+        loop=loop,
+        ping_pong=ping_pong,
+    )
+
+
+def _ninepatch(value: Any, kind: AssetKind, where: str) -> bool:
+    """`ninepatch.mirror` is opt-out: mirroring is the safe default for a stretchable frame."""
+    if value is None:
+        return True
+    if kind not in _MARGIN_KINDS:
+        raise SpecError(
+            f"'ninepatch' is only valid for ui_element and icon, not {kind.value!r}",
+            location=where,
+            remedy="remove the ninepatch block, or change the kind",
+        )
+    if not isinstance(value, dict):
+        raise SpecError("ninepatch must be a mapping, e.g. {mirror: false}", location=where)
+    for key in value:
+        if key not in _NINEPATCH_KEYS:
+            raise SpecError(
+                f"unknown key {key!r} in ninepatch{_suggest(key, _NINEPATCH_KEYS)}",
+                location=where,
+            )
+    mirror = value.get("mirror", True)
+    if not isinstance(mirror, bool):
+        raise SpecError("ninepatch.mirror must be true or false", location=where)
+    return mirror
 
 
 def _layout(value: Any, frames: int | None, kind: AssetKind, where: str) -> tuple[int, int] | None:

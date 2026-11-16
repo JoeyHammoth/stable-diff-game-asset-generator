@@ -232,7 +232,7 @@ verify once with a `normal_sphere` fixture and then trust the flag.
 | `alpha_required` | alpha channel exists; `mean(alpha==0) > 0.05` | error |
 | `binary_alpha` | every alpha ∈ {0, 255} (after `alpha_hard`) | error |
 | `seamless_tile` | `edge_diff / interior_diff <= ratio`. `edge_diff = mean|I[:,0]-I[:,-1]| + mean|I[0,:]-I[-1,:]|`; `interior_diff` = same measure on randomly sampled interior adjacent lines | error, 1.5 |
-| `symmetry_9patch` | `I == mirror(I)` bitwise; margins declared and `2*max(margin) < edge` | error |
+| `symmetry_9patch` | margins declared and `left + right < width`, `top + bottom < height`; `I == mirror(I)` bitwise unless `ninepatch.mirror: false` | error |
 | `normal_map_valid` | mean encoded z > 0.5; `abs(‖rgb*2-1‖ - 1) < 0.05` for >99% of pixels; no zero pixels | error |
 | `aa_suspect` | fraction of pixel pairs with `0 < Δ < 3` (near-identical neighbours indicating anti-aliasing) above 0.15 | warn |
 | `audio_peak` | `peak_dbfs` within ±0.5 of target | error |
@@ -291,17 +291,23 @@ pipeline writes outside `runs/` and `.sdga/`.
   measures each edge independently; older packs that stored `[horizontal, vertical]` are
   expanded by applying each value to both sides.
 - `sprite_frames.json` — an `AnimatedSprite2D` `SpriteFrames` descriptor: frame size, grid, and
-  one animation per authored clip (`animations: {walk: [start, count]}` in the asset spec). A
-  sheet without clips gets a single `default` animation over every frame. The playback clock is
-  `--fps` (default 8) because the pack deliberately carries layout, not engine speed.
+  one animation per authored clip. A clip is `{start, count}` or
+  `{start, count, fps, loop, ping_pong}`; ping-pong appends the reverse sequence without
+  repeating either endpoint, and a clip without `fps` inherits `--fps` (default 8). A sheet
+  without clips gets a single `default` animation over every frame.
 - `audio_buses.json` — the bus from `engine.audio.bus` for each audio asset, the buses used, and
   each track's loop in seconds.
 - `manifest.json` — a sha256 of every artifact above, so two runs can be diffed byte-for-byte.
 
 It does **not** write `.tscn`/`.tres` files, does not require Godot, and is off unless invoked;
-the output is deterministic JSON. A separate Godot-side importer (out of scope for this repo)
-consumes these files. A malformed `engine` hint is an error with a remedy, never a guessed
-default: an adapter that silently omits a margins block ships a subtly broken UI.
+the output is deterministic JSON. `examples/godot/` contains an optional runtime consumer; it
+is not part of the generator or its CI gate. A malformed `engine` hint is an error with a
+remedy, never a guessed default: an adapter that silently omits a margins block ships a subtly
+broken UI.
+
+An asymmetric frame is opt-in: `ninepatch: {mirror: false}` removes `ninepatch_mirror` from the
+chain for that asset, and `symmetry_9patch` then grades only the margin geometry. The default
+stays mirrored, because mirroring is what makes an arbitrary frame stretch safely.
 
 ---
 
