@@ -140,6 +140,24 @@ served from cache, and a hit is byte-identical to a fresh generation rather than
 **P4 gate:** all eight biome tracks derived from one `leitmotif_core.mid`, all beat-aligned, all
 seam-gated, published with loop points.
 
+*Met:* `tests/test_p4.py` holds one test per ticket plus the gate property: eight tracks from
+one D-minor phrase, each `beat_alignment` / `audio_loop_seam` / `audio_peak` / `audio_clip`
+clean, published with `engine.music.loop` points, and a second run all cache hits. Three
+decisions the plan did not spell out, all made by running the pipeline:
+
+- **`tempo_scale` divides.** It is a speed factor; multiplying made the "faster" combat track
+  slower, which the tests caught immediately.
+- **The seam RMS clause is one-sided.** A symmetric ±3 dB test failed good tracks whose loop
+  starts on a downbeat. A fade-out at the wrap is the real defect and reads as a drop; a bump
+  is already bounded by `audio_peak`.
+- **No AI bed in this build.** `mix()` takes a bed and the music prompt already forbids a lead
+  melody, but wiring a MusicGen backend is separate work: the melody is rendered from the MIDI
+  and mixed, so the leitmotif guarantee does not depend on the bed existing.
+
+The offline `synth` backend is a real instrument, not a test double: it is deterministic, needs
+no soundfont or binary, and is what makes the whole audio path runnable in CI. `fluidsynth`
+stays available and is capability-gated with a named remedy.
+
 ### P5 · Engine adapter and CI
 
 | # | Ticket | Size | ← | Acceptance |

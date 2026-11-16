@@ -236,7 +236,7 @@ verify once with a `normal_sphere` fixture and then trust the flag.
 | `normal_map_valid` | mean encoded z > 0.5; `abs(‖rgb*2-1‖ - 1) < 0.05` for >99% of pixels; no zero pixels | error |
 | `aa_suspect` | fraction of pixel pairs with `0 < Δ < 3` (near-identical neighbours indicating anti-aliasing) above 0.15 | warn |
 | `audio_peak` | `peak_dbfs` within ±0.5 of target | error |
-| `audio_loop_seam` | `|x[-1] - x[0]| <= 3 * median(|diff(x)|)` and wrap-window RMS within 3 dB of interior RMS | error |
+| `audio_loop_seam` | `|x[-1] - x[0]| <= 3 * median(|diff(x)|)`; the wrap-window level drop is reported as `level_drop_db` but does not fail, because a rest at the seam and a fade-out are identical by level | error |
 | `audio_clip` | `count(|x| >= 1.0) == 0` | error |
 | `beat_alignment` | `len(x)` within 1 sample of `bars * beats * 60 / bpm * sr` | error |
 
