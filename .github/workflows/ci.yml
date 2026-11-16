@@ -65,7 +65,7 @@ jobs:
 
       # P4's gate, on the runner: no soundfont, no fluidsynth binary, no GPU. Eight tracks
       # derived from one authored phrase must all pass beat_alignment and audio_loop_seam.
-      - name: P4 gate: eight tracks from one leitmotif
+      - name: "P4 gate: eight tracks from one leitmotif"
         run: |
           sdga run --project examples \
             --asset music/cave --asset music/combat --asset music/desert \
