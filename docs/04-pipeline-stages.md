@@ -287,12 +287,13 @@ pipeline writes outside `runs/` and `.sdga/`.
 - `godot_import.json` — per file import settings: `filter=false`, `mipmaps=false`, lossless
   compression for pixel kinds and VRAM compression for concepts; WAV files get `loop_mode`,
   loop points in seconds and frames, and the music loop is forward-only.
-- `ninepatch.json` — `NinePatchRect` margins. The pack stores the uniform border as
-  `[horizontal, vertical]`; the adapter applies each pair to both edges, which is what the
-  symmetry gate proved is safe.
-- `sprite_frames.json` — an `AnimatedSprite2D` `SpriteFrames` descriptor: frame size, grid,
-  frame count and one `default` animation. The playback clock is `--fps` (default 8) because the
-  pack deliberately carries layout, not engine speed.
+- `ninepatch.json` — `NinePatchRect` margins as `left`, `top`, `right`, `bottom`. The pack
+  measures each edge independently; older packs that stored `[horizontal, vertical]` are
+  expanded by applying each value to both sides.
+- `sprite_frames.json` — an `AnimatedSprite2D` `SpriteFrames` descriptor: frame size, grid, and
+  one animation per authored clip (`animations: {walk: [start, count]}` in the asset spec). A
+  sheet without clips gets a single `default` animation over every frame. The playback clock is
+  `--fps` (default 8) because the pack deliberately carries layout, not engine speed.
 - `audio_buses.json` — the bus from `engine.audio.bus` for each audio asset, the buses used, and
   each track's loop in seconds.
 - `manifest.json` — a sha256 of every artifact above, so two runs can be diffed byte-for-byte.

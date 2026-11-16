@@ -238,12 +238,12 @@ def test_ninepatch_mirror_is_bitwise_symmetric():
     _block(image, (4, 4, 12, 12), (200, 72, 72, 255))
 
     mirrored = ninepatch_mirror(image, OpContext(size=(64, 16)))
-    horizontal, vertical = ninepatch_margins(mirrored)
+    left, top, right, bottom = ninepatch_margins(mirrored)
     result = symmetry_9patch(mirrored, GateContext(size=(64, 16), kind=AssetKind.UI_ELEMENT))
 
     assert result.status == "pass", result.to_dict()
-    assert horizontal >= 4 and vertical >= 4
-    assert 2 * max(horizontal, vertical) < 16
+    assert min(left, top, right, bottom) >= 4
+    assert left + right < 64 and top + bottom < 16
 
 
 def test_an_asymmetric_button_fails_the_gate():
@@ -263,7 +263,7 @@ def test_ui_margins_reach_the_pack(project: Path):
     asset = manifest["assets"][0]
 
     assert asset["engine"]["ui"]["ninepatch"] is True
-    assert len(asset["engine"]["ui"]["margins"]) == 2
+    assert len(asset["engine"]["ui"]["margins"]) == 4
     assert outcome.accepted == 1
 
 

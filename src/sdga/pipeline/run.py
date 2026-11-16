@@ -582,6 +582,14 @@ def execute_job(
         "seed": request.seed,
         "frames": spec.frames or 1,
         "layout": list(spec.layout) if spec.layout else None,
+        # Playback metadata, not generation input: it changes the pack, never the request hash.
+        "animations": [
+            {"name": name, "start": start, "count": count}
+            for name, (start, count) in sorted(
+                spec.animations.items(), key=lambda item: (item[1][0], item[0])
+            )
+        ]
+        or None,
         "params": dict(request.params),
         "refs": [{"role": ref.role.value, "path": ref.path} for ref in request.refs],
         "status": FAILED,

@@ -194,21 +194,28 @@ def _ninepatch(pack: Mapping[str, Any]) -> dict[str, Any]:
         if (
             not isinstance(margins, Sequence)
             or isinstance(margins, str)
-            or len(margins) != 2
+            or len(margins) not in {2, 4}
             or any(
                 isinstance(value, bool) or not isinstance(value, int) or value < 0
                 for value in margins
             )
         ):
-            _fail(f"{asset['id']}: ui.margins must be [horizontal, vertical], got {margins!r}")
-        horizontal, vertical = int(margins[0]), int(margins[1])
+            _fail(
+                f"{asset['id']}: ui.margins must be [left, top, right, bottom] "
+                f"(or legacy [horizontal, vertical]), got {margins!r}"
+            )
+        if len(margins) == 2:
+            left, top = int(margins[0]), int(margins[1])
+            right, bottom = left, top
+        else:
+            left, top, right, bottom = (int(value) for value in margins)
         assets[str(asset["id"])] = {
             "path": _first_path(asset),
             "margins": {
-                "left": horizontal,
-                "top": vertical,
-                "right": horizontal,
-                "bottom": vertical,
+                "left": left,
+                "top": top,
+                "right": right,
+                "bottom": bottom,
             },
         }
     return {"schema": SCHEMA, "engine": ENGINE, "pack_id": pack["pack_id"], "assets": assets}
@@ -240,19 +247,14 @@ def _sprite_frames(pack: Mapping[str, Any], fps: int) -> dict[str, Any]:
         frames = _positive_int(sprite.get("frames"), f"{asset['id']}: sprite.frames")
         if cols * rows < frames:
             _fail(f"{asset['id']}: sprite grid {cols}x{rows} cannot hold {frames} frame(s)")
+        animations = _animation_clips(sprite.get("animations"), frames, str(asset["id"]), fps)
         sprites[str(asset["id"])] = {
             "path": _first_path(asset),
             "frame_size": [int(frame_size[0]), int(frame_size[1])],
             "cols": cols,
             "rows": rows,
             "frames": frames,
-            "animations": {
-                "default": {
-                    "frames": list(range(frames)),
-                    "loop": True,
-                    "speed": fps,
-                }
-            },
+            "animations": animations,
         }
     return {
         "schema": SCHEMA,
@@ -261,6 +263,52 @@ def _sprite_frames(pack: Mapping[str, Any], fps: int) -> dict[str, Any]:
         "fps": fps,
         "sprites": sprites,
     }
+
+
+def _animation_clips(clips: Any, frames: int, asset_id: str, fps: int) -> dict[str, dict[str, Any]]:
+    """Named clips when the pack carries them, otherwise one `default` over every frame."""
+    if clips is None:
+        return {
+            "default": {
+                "frames": list(range(frames)),
+                "loop": True,
+                "speed": fps,
+            }
+        }
+    if not isinstance(clips, list):
+        _fail(f"{asset_id}: sprite.animations must be a list of clips")
+    named: dict[str, dict[str, Any]] = {}
+    for clip in clips:
+        if not isinstance(clip, dict):
+            _fail(f"{asset_id}: sprite.animations contains a non-object clip")
+        name = clip.get("name")
+        if not isinstance(name, str) or not name:
+            _fail(f"{asset_id}: an animation clip has no name")
+        if name in named:
+            _fail(f"{asset_id}: animation {name!r} is declared twice")
+        start = clip.get("start")
+        count = clip.get("count")
+        if (
+            isinstance(start, bool)
+            or isinstance(count, bool)
+            or not isinstance(start, int)
+            or not isinstance(count, int)
+            or start < 0
+            or count < 1
+            or start + count > frames
+        ):
+            _fail(
+                f"{asset_id}: animation {name!r} covers frames {start}..{start}+{count} "
+                f"outside 0..{frames}"
+            )
+        named[name] = {
+            "frames": list(range(start, start + count)),
+            "loop": True,
+            "speed": fps,
+        }
+    if not named:
+        _fail(f"{asset_id}: sprite.animations is empty; omit it to get a default clip")
+    return named
 
 
 def _audio_buses(pack: Mapping[str, Any]) -> dict[str, Any]:
@@ -310,7 +358,15 @@ def _validate_bundle(bundle: Mapping[str, Mapping[str, Any]], pack_id: str) -> N
     for asset_id, sprite in bundle["sprite_frames.json"]["sprites"].items():
         if len(sprite["frame_size"]) != 2 or sprite["cols"] * sprite["rows"] < sprite["frames"]:
             _fail(f"SpriteFrames for {asset_id} has an impossible grid")
-        if sprite["animations"]["default"]["frames"] != list(range(sprite["frames"])):
+        animations = sprite["animations"]
+        if not animations:
+            _fail(f"SpriteFrames for {asset_id} declares no animations")
+        covered = [index for clip in animations.values() for index in clip["frames"]]
+        if any(index < 0 or index >= sprite["frames"] for index in covered):
+            _fail(f"SpriteFrames for {asset_id} references a frame outside the sheet")
+        if "default" in animations and animations["default"]["frames"] != list(
+            range(sprite["frames"])
+        ):
             _fail(f"SpriteFrames for {asset_id} does not list every frame")
     for asset_id, ui in bundle["ninepatch.json"]["assets"].items():
         if set(ui["margins"]) != {"left", "top", "right", "bottom"}:

@@ -165,6 +165,8 @@ class AssetSpec:
     music: Mapping[str, Any] | None = None
     frames: int | None = None
     layout: tuple[int, int] | None = None
+    # name -> (start frame, frame count). Empty means one `default` clip over every frame.
+    animations: Mapping[str, tuple[int, int]] = field(default_factory=dict)
     references: Mapping[str, str] = field(default_factory=dict)
     params: Mapping[str, Any] = field(default_factory=dict)
     gates: Mapping[str, Any] = field(default_factory=dict)

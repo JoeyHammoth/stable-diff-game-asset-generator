@@ -212,8 +212,8 @@ def binary_alpha(image: Image.Image, ctx: GateContext) -> GateResult:
 def symmetry_9patch(image: Image.Image, ctx: GateContext) -> GateResult:
     """Bitwise mirror symmetry plus 9-slice margins that cannot overlap.
 
-    `2 * max(margin) < edge` is the geometric requirement: margins wider than half the edge
-    leave no stretchable centre, so the slice degenerates when an engine resizes it.
+    `left + right < width` and `top + bottom < height` are the geometric requirement: margins
+    that meet leave no stretchable centre, so the slice degenerates when an engine resizes it.
     """
     source = image.convert("RGBA")
     width, height = source.size
@@ -222,17 +222,19 @@ def symmetry_9patch(image: Image.Image, ctx: GateContext) -> GateResult:
     top_bottom = source.tobytes() == source.transpose(Image.Transpose.FLIP_TOP_BOTTOM).tobytes()
     symmetric = left_right and top_bottom
 
-    horizontal, vertical = ninepatch_margins(source)
-    # Each margin is checked against its own edge: a 31px horizontal margin is legal on a
+    left, top, right, bottom = ninepatch_margins(source)
+    # Each pair is checked against its own edge: a 31px left/right margin is legal on a
     # 64px-wide button even though the button is only 16px tall.
-    roomy = 2 * horizontal < width and 2 * vertical < height
+    roomy = left + right < width and top + bottom < height
     return GateResult(
         "symmetry_9patch",
         PASS if symmetric and roomy else FAIL,
-        value=[horizontal, vertical],
+        value=[left, top, right, bottom],
         threshold={
-            "max_horizontal": (width - 1) // 2,
-            "max_vertical": (height - 1) // 2,
+            "max_left": left,
+            "max_right": right,
+            "max_top": top,
+            "max_bottom": bottom,
             "symmetric": symmetric,
         },
         detail="mirror-exact" if symmetric else "not mirror-symmetric",

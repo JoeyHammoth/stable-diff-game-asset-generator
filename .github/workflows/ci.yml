@@ -117,7 +117,19 @@ jobs:
           assert sprite["frames"] > 1, sprite
           assert len(sprite["frame_size"]) == 2
           assert sprite["animations"]["default"]["frames"] == list(range(sprite["frames"]))
-          assert "ui/button_normal" in ninepatch["assets"], ninepatch
+          pack = json.loads(
+              sorted(pathlib.Path("examples/packs").glob("*/pack.json"))[-1].read_text(encoding="utf-8")
+          )
+          ui = next(asset for asset in pack["assets"] if asset["kind"] == "ui_element")
+          assert ninepatch["assets"]["ui/button_normal"]["margins"] == {
+              "left": ui["engine"]["ui"]["margins"][0],
+              "top": ui["engine"]["ui"]["margins"][1],
+              "right": ui["engine"]["ui"]["margins"][2],
+              "bottom": ui["engine"]["ui"]["margins"][3],
+          }, ninepatch
+          assert sprites["sprites"]["char/ranger_walk"]["animations"]["walk"]["frames"] == list(
+              range(8)
+          )
           assert buses["assets"]["music/title"]["bus"] == "Music"
           assert buses["assets"]["sfx/pickup"]["bus"] == "SFX"
           assert hints["files"]["assets/music/title.wav"]["loop_end_frame"] > 0
