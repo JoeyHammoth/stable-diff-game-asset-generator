@@ -178,6 +178,19 @@ stays available and is capability-gated with a named remedy.
 | T37 | `examples/` project: one tile, one sprite, one UI element, one track, all fake-backend generated | S | T36 | `sdga run` in `examples/` on a clean machine produces a valid pack |
 | T38 | CI: ruff, mypy (strict on `model/`), unit + contract tests, fake end-to-end, pack determinism diff | M | T29, T37 | CI has no torch, no ComfyUI, no GPU, and still runs the whole pipeline |
 
+*Met:* `tests/test_p5.py` pins the four artifacts and the CLI; the P5 CI step runs the full
+example project (19 requests, 16 assets after candidate promotion), publishes, validates the
+pack, then adapts it twice with `diff -r` between the runs. The gate asserts terrain filtering
+off, lossless pixel compression against VRAM-compressed concepts, an 8-frame `SpriteFrames`
+listing every frame, the UI margins `[31, 7]` expanded to four edges, `Music`/`SFX` buses, and a
+music loop of 341,333 frames at 32 kHz. No Godot binary exists in the job, which is the point:
+the adapter is data, and a `pack.json` with a malformed hint fails with a remedy rather than
+silently omitting a ninepatch block.
+
+One deliberate split: the pack carries layout and loop points but not playback speed, so
+`--fps` (default 8) is an adapter option rather than invented data. Moving a service or an
+animation clock does not invalidate the soundtrack or the images.
+
 ---
 
 ## 4. Frontier: what to start on Monday

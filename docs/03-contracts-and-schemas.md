@@ -415,7 +415,8 @@ sdga review  [--asset ID] [--approve|--reject] [--note]
 sdga publish [--run ID]         # write packs/<pack_id>/
 sdga palette extract IMAGE [--colors N] [--out PATH] [--force]
                                 # author the palette file from an image; .gpl or .png
-sdga adapt   --engine godot     # optional: emit engine hints from a pack
+sdga adapt   --engine godot [--pack DIR] [--out DIR] [--fps N]
+                                # optional: emit engine data from a pack
 ```
 
 Exit codes: `0` success, `1` gate/review failure, `2` usage error, `3` backend unavailable,

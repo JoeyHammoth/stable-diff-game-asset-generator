@@ -89,3 +89,40 @@ jobs:
               # samples, so allow one sample of rounding rather than demanding equality.
               assert abs(job["loop"]["end_s"] - job["post"][0]["duration_s"]) <= 1e-3
           PY
+
+      # P5's gate: a full fake-backend run, a published pack, and two adapter runs that must
+      # be byte-identical. No Godot binary is installed anywhere in this job.
+      - name: "P5 gate: adapt a full pack for Godot"
+        run: |
+          sdga run --project examples | tee /tmp/p5.log
+          grep -q "16 accepted, 0 rejected" /tmp/p5.log
+          sdga publish --project examples --allow-unreviewed
+          PACK=$(ls -d examples/packs/* | tail -1)
+          sdga validate --project examples "$PACK"
+          sdga adapt --project examples --pack "$PACK" --out /tmp/godot-a --fps 8
+          sdga adapt --project examples --pack "$PACK" --out /tmp/godot-b --fps 8
+          diff -r /tmp/godot-a /tmp/godot-b
+          python - <<'PY'
+          import json, pathlib
+          out = pathlib.Path("/tmp/godot-a")
+          hints = json.loads((out / "godot_import.json").read_text(encoding="utf-8"))
+          sprites = json.loads((out / "sprite_frames.json").read_text(encoding="utf-8"))
+          buses = json.loads((out / "audio_buses.json").read_text(encoding="utf-8"))
+          ninepatch = json.loads((out / "ninepatch.json").read_text(encoding="utf-8"))
+          manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+          assert hints["files"]["assets/terrain/moss_stone.png"]["filter"] is False
+          assert hints["files"]["assets/terrain/moss_stone.png"]["mipmaps"] is False
+          assert hints["files"]["assets/char/ranger_walk.png"]["compression"] == "lossless"
+          sprite = sprites["sprites"]["char/ranger_walk"]
+          assert sprite["frames"] > 1, sprite
+          assert len(sprite["frame_size"]) == 2
+          assert sprite["animations"]["default"]["frames"] == list(range(sprite["frames"]))
+          assert "ui/button_normal" in ninepatch["assets"], ninepatch
+          assert buses["assets"]["music/title"]["bus"] == "Music"
+          assert buses["assets"]["sfx/pickup"]["bus"] == "SFX"
+          assert hints["files"]["assets/music/title.wav"]["loop_end_frame"] > 0
+          assert hints["files"]["assets/sfx/pickup.wav"]["loop_mode"] == 0
+          assert set(manifest["files"]) == {
+              "audio_buses.json", "godot_import.json", "ninepatch.json", "sprite_frames.json"
+          }
+          PY
