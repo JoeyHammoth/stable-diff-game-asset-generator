@@ -129,6 +129,17 @@ class JobReport:
     error: Mapping[str, Any] | None = None
 
 
+@dataclass(frozen=True)
+class QueueState:
+    """What the backend currently has in flight, as prompt ids (ours, not the server's)."""
+
+    running: tuple[str, ...] = ()
+    pending: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"running": list(self.running), "pending": list(self.pending)}
+
+
 @runtime_checkable
 class GenerationBackend(Protocol):
     """Everything a backend must do. Nothing else crosses this seam."""
@@ -149,6 +160,16 @@ class GenerationBackend(Protocol):
     def fetch(self, artifact: ArtifactRef, dest: Path) -> Path:
         """Write the artifact to `dest` and return the written path."""
 
+    def lookup(self, request: GenerationRequest) -> JobReport | None:
+        """The terminal report if the backend already finished this request, else `None`.
+
+        This is the resume seam: after a crash the request may have completed on the server,
+        and re-submitting it would generate the same image a second time.
+        """
+
+    def queue(self) -> QueueState:
+        """Current running and pending prompt ids, for `sdga status`."""
+
 
 __all__ = [
     "ArtifactRef",
@@ -159,4 +180,5 @@ __all__ = [
     "JobHandle",
     "JobReport",
     "PollState",
+    "QueueState",
 ]

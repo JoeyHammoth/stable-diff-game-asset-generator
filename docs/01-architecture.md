@@ -104,7 +104,18 @@ class GenerationBackend(Protocol):
     def cancel(self, handle: JobHandle) -> None: ...
 
     def fetch(self, artifact: ArtifactRef, dest: Path) -> Path: ...
+
+    def lookup(self, request: GenerationRequest) -> JobReport | None:
+        """The terminal report if the server already finished this request, else None."""
+
+    def queue(self) -> QueueState:
+        """Running and pending prompt ids, for `sdga status`."""
 ```
+
+`lookup` is what makes resume honest: after a kill, a job may have completed on the server, and
+re-submitting it would generate the same image a second time. `queue` is read-only and
+best-effort; a backend that cannot answer it (or a server that is down) degrades to a report
+row rather than an exception.
 
 Everything else — prompt assembly, palette snapping, downscaling, centring, seam checks, loop
 padding, manifests — is a pure function over files or arrays and is tested directly.

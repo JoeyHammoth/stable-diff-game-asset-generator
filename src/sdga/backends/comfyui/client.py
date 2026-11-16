@@ -175,6 +175,13 @@ class ComfyUIClient:
             raise BackendError("bad_output", "/system_stats did not return a JSON object")
         return parsed
 
+    def queue(self) -> dict[str, Any]:
+        """What the server has running and pending, for `sdga status`."""
+        parsed = self._json("GET", "/queue")
+        if not isinstance(parsed, dict):
+            raise BackendError("bad_output", "/queue did not return a JSON object")
+        return parsed
+
     def interrupt(self) -> None:
         try:
             self._request("POST", "/interrupt")
