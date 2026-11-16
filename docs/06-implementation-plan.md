@@ -150,9 +150,14 @@ decisions the plan did not spell out, all made by running the pipeline:
 - **The seam RMS clause is one-sided.** A symmetric ±3 dB test failed good tracks whose loop
   starts on a downbeat. A fade-out at the wrap is the real defect and reads as a drop; a bump
   is already bounded by `audio_peak`.
-- **No AI bed in this build.** `mix()` takes a bed and the music prompt already forbids a lead
-  melody, but wiring a MusicGen backend is separate work: the melody is rendered from the MIDI
-  and mixed, so the leitmotif guarantee does not depend on the bed existing.
+- **Beds are wired now, as textures.** `[audio] bed` selects `texture` (offline, deterministic
+  chord pad and noise wash; the default in `examples/`) or `musicgen` (a local service; see
+  docs/04). The bed is the cached raw artifact because it is the model-produced half; a cache
+  hit re-renders the deterministic melody and re-mixes, so a postprocess change is still
+  re-evaluated rather than served. Both halves are mixed at a fixed gain and the music negative
+  prompt forbids a lead melody, so a bed can texture the leitmotif but never double it.
+  `tests/test_p4_bed.py` covers both, including a local MusicGen stub over real HTTP and a dead
+  service failing the run instead of silently dropping the bed.
 
 The offline `synth` backend is a real instrument, not a test double: it is deterministic, needs
 no soundfont or binary, and is what makes the whole audio path runnable in CI. `fluidsynth`

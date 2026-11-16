@@ -327,16 +327,39 @@ plan: prompt + duration + sample rate
 
 ```
 1. leitmotif/*.mid  ── transform ──► per-track MIDI (scale, tempo, fragment, transpose)
-2. MIDI ── fluidsynth + soundfont ──► melody WAV  (deterministic, no AI)
-3. melody WAV + prompt ── backend ──► backing stem (AI, texture only)
-4. melody WAV + backing stem ── mix ──► full track   ← authored melody is sample-exact
+2. MIDI ── synth or fluidsynth ──► melody WAV  (deterministic, no AI)
+3. track prompt ── bed backend ──► backing texture  (texture | musicgen; never a lead)
+4. melody WAV + bed ── mix at bed_gain_db ──► full track   ← authored melody is sample-exact
 5. loop_crossfade to bar-aligned length
-6. gates: beat_alignment, audio_loop_seam, audio_peak
+6. gates: beat_alignment, audio_loop_seam, audio_peak, audio_clip
 ```
 
 Step 4 is the important deviation from the source guide: the melody is **mixed in**, not
 conditioned for. See [05-gap-analysis.md](05-gap-analysis.md#f-music-pipeline-specifically). This is what makes "one
 leitmotif across every track" a guarantee instead of a hope.
+
+A bed is a texture, not a second tune: its request carries the track prompt with a negative
+prompt that forbids a lead melody, it is fitted to the same `render_s` as the melody, and it is
+mixed at a fixed gain. `[audio] bed` chooses where it comes from:
+
+- `texture` — offline and deterministic (sustained chord voices and a filtered noise wash).
+  This is what runs in CI, so the bed path is gated without a GPU or a model.
+- `musicgen` — a local MusicGen service over HTTP. The pipeline never imports torch, so the
+  model lives behind a service; the contract is deliberately small:
+
+  ```
+  GET  {bed_url}/health   -> {"model": "...", "sample_rate": 32000}
+  POST {bed_url}/generate -> WAV bytes (audio/wav), given
+       {"prompt", "negative_prompt", "duration_s", "sample_rate", "seed"}
+  ```
+
+  A missing service, wrong content type or wrong sample rate is a named `missing_capability`,
+  never a silent fall-through to a melody-only track. Resampling is not implemented: keep the
+  service and `[audio] sample_rate` in step.
+
+The bed is the cached raw artifact, because it is the model-produced half. On a hit the
+deterministic melody is re-rendered and re-mixed with the cached bed, so a change to the mix or
+the postprocess is re-evaluated rather than served from cache.
 
 Loop length must satisfy `duration_s = bars * beats_per_bar * 60 / bpm`, and the loop op shortens
 the file by the crossfade length, so the plan must solve for `L = target + fade`.

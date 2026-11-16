@@ -10,6 +10,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from .base import AudioBackend, AudioProfile
+from .bed import (
+    BedBackend,
+    BedRequest,
+    MusicGenBackend,
+    NoBedBackend,
+    TextureBedBackend,
+    build_bed_backend,
+)
 from .fluidsynth import FluidSynthBackend
 from .gates import (
     AUDIO_GATES,
@@ -51,7 +59,12 @@ __all__ = [
     "AudioBackend",
     "AudioGateContext",
     "AudioProfile",
+    "BedBackend",
+    "BedRequest",
     "FluidSynthBackend",
+    "MusicGenBackend",
+    "NoBedBackend",
+    "TextureBedBackend",
     "Key",
     "MidiFile",
     "Note",
@@ -62,6 +75,7 @@ __all__ = [
     "audio_peak",
     "beat_alignment",
     "build_audio_backend",
+    "build_bed_backend",
     "detect_key",
     "duration_exact",
     "evaluate_audio",

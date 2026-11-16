@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__, doctor
-from .audio import AudioBackend, build_audio_backend
+from .audio import AudioBackend, BedBackend, build_audio_backend, build_bed_backend
 from .backends import FakeBackend, GenerationBackend
 from .backends.comfyui import ComfyUIBackend, load_recipes
 from .config import Config, load_config
@@ -225,6 +225,15 @@ def make_audio_backend(config: Config) -> AudioBackend:
     )
 
 
+def make_bed_backend(config: Config) -> BedBackend:
+    return build_bed_backend(
+        config.audio.bed,
+        url=config.audio.bed_url,
+        sample_rate=config.audio.sample_rate,
+        timeout_s=config.audio.bed_timeout_s,
+    )
+
+
 def project_needs_audio(config: Config) -> bool:
     try:
         specs = load_specs(config)
@@ -237,8 +246,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     config = load_config(args.project)
     backend = make_backend(config)
     recipes = load_recipes(config)
-    audio = make_audio_backend(config) if project_needs_audio(config) else None
-    report = doctor.run(config, backend, recipes.requirements(config.style), audio=audio)
+    needs_audio = project_needs_audio(config)
+    audio = make_audio_backend(config) if needs_audio else None
+    bed = make_bed_backend(config) if needs_audio else None
+    report = doctor.run(config, backend, recipes.requirements(config.style), audio=audio, bed=bed)
     if args.json:
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
@@ -278,6 +289,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         config,
         backend,
         audio=make_audio_backend(config),
+        bed=make_bed_backend(config),
         assets=args.asset or None,
         dry_run=args.dry_run,
         resume=args.resume,

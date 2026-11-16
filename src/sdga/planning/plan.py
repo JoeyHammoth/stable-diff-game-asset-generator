@@ -168,13 +168,17 @@ def audio_params(config: Config, spec: AssetSpec) -> dict[str, Any]:
     derived track's cache entry instead of quietly keeping the old render.
     """
     if spec.kind is AssetKind.MUSIC_TRACK:
-        return {
-            "music": resolve_music(
-                config.root,
-                spec.music,
-                where=spec.source.location() if spec.source else spec.id,
-            )
-        }
+        music = resolve_music(
+            config.root,
+            spec.music,
+            where=spec.source.location() if spec.source else spec.id,
+        )
+        # The bed's kind and gain belong to the request hash: switching from texture to a
+        # MusicGen service must regenerate. The URL does not, for the same reason the
+        # backend URL does not — moving a service must not invalidate the soundtrack. It is
+        # covered by the bed profile hash instead.
+        music["bed"] = {"kind": config.audio.bed, "gain_db": config.audio.bed_gain_db}
+        return {"music": music}
     return {
         "duration_s": float(spec.duration_s or 0.0),
         "sample_rate": config.audio.sample_rate,

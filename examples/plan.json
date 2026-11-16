@@ -866,6 +866,10 @@
         "music": {
           "bars": 4,
           "beats_per_bar": 4,
+          "bed": {
+            "gain_db": -9.0,
+            "kind": "texture"
+          },
           "bpm": 72.0,
           "crossfade_s": 1.0,
           "fragment": 3,
@@ -883,7 +887,7 @@
       "positive": "orchestral game soundtrack, cinematic, loopable texture, echoing cave ambience, distant high tones, deep slow pad",
       "recipe": null,
       "refs": [],
-      "request_id": "sha256:b5b2fd975e1f13cf67df727d603808a415234da097c10e7b721c65867ce2254f",
+      "request_id": "sha256:98ecb8b23ed132ce28119379874abc089678e2d54e5e1d32f5bb29ff33244730",
       "schema": 1,
       "seed": 3335053869,
       "size": null,
@@ -901,6 +905,10 @@
         "music": {
           "bars": 4,
           "beats_per_bar": 4,
+          "bed": {
+            "gain_db": -9.0,
+            "kind": "texture"
+          },
           "bpm": 140.0,
           "crossfade_s": 0.4,
           "fragment": 1,
@@ -918,7 +926,7 @@
       "positive": "orchestral game soundtrack, cinematic, loopable texture, tense combat loop, driving plucked strings, fast pulse, no vocals",
       "recipe": null,
       "refs": [],
-      "request_id": "sha256:e147ca60993c1684388f7b082bec495e7cd9561a219da55887ba2f317cda8c3b",
+      "request_id": "sha256:1ddbeabcbe8c07aab2066f669f42c41ab746cb97a1598f5d0b3f0ddd7fdcbd02",
       "schema": 1,
       "seed": 3411871453,
       "size": null,
@@ -936,6 +944,10 @@
         "music": {
           "bars": 4,
           "beats_per_bar": 4,
+          "bed": {
+            "gain_db": -9.0,
+            "kind": "texture"
+          },
           "bpm": 100.0,
           "crossfade_s": 0.5,
           "fragment": 0,
@@ -953,7 +965,7 @@
       "positive": "orchestral game soundtrack, cinematic, loopable texture, dry plucked strings, wide open space, gentle hand drum pulse",
       "recipe": null,
       "refs": [],
-      "request_id": "sha256:74085b578203d12fe9d4b0db8dd7fd9f731e8c049c435ef0e4fa56352df194ee",
+      "request_id": "sha256:6906f14add3a27952c446d381eaabc22b17bc92e8263fba0fbd780a81a66bbfd",
       "schema": 1,
       "seed": 1209060203,
       "size": null,
@@ -971,6 +983,10 @@
         "music": {
           "bars": 4,
           "beats_per_bar": 4,
+          "bed": {
+            "gain_db": -9.0,
+            "kind": "texture"
+          },
           "bpm": 88.0,
           "crossfade_s": 0.5,
           "fragment": 1,
@@ -988,7 +1004,7 @@
       "positive": "orchestral game soundtrack, cinematic, loopable texture, quiet forest ambience, soft pads, a slow melodic pulse, no drums",
       "recipe": null,
       "refs": [],
-      "request_id": "sha256:30fa314f2684a8cb3d7ef062e5c909cc79b627e7fd96ab6af79f6db9ed43976c",
+      "request_id": "sha256:3e97213ca8d74d09a44f8e8dc3346d5ef7f332cd1ca00bfe857c60b5f4cbe021",
       "schema": 1,
       "seed": 874416814,
       "size": null,
@@ -1006,6 +1022,10 @@
         "music": {
           "bars": 4,
           "beats_per_bar": 4,
+          "bed": {
+            "gain_db": -9.0,
+            "kind": "texture"
+          },
           "bpm": 84.0,
           "crossfade_s": 0.75,
           "fragment": 3,
@@ -1023,7 +1043,7 @@
       "positive": "orchestral game soundtrack, cinematic, loopable texture, cold high bells, sparse and airy, slow drifting texture",
       "recipe": null,
       "refs": [],
-      "request_id": "sha256:e7ebce3fa0a061f4ffb67bfbbb63031fa9fe78dcc8de07919bba0145099a3a40",
+      "request_id": "sha256:3fbbabec1f1437b0f8a3d021d3972df394e671f5b5c327f03e912b2f7ab5ae82",
       "schema": 1,
       "seed": 2396879828,
       "size": null,
@@ -1041,6 +1061,10 @@
         "music": {
           "bars": 4,
           "beats_per_bar": 4,
+          "bed": {
+            "gain_db": -9.0,
+            "kind": "texture"
+          },
           "bpm": 76.0,
           "crossfade_s": 0.5,
           "fragment": 2,
@@ -1058,7 +1082,7 @@
       "positive": "orchestral game soundtrack, cinematic, loopable texture, low murky drone under a slow bass figure, humid and uneasy",
       "recipe": null,
       "refs": [],
-      "request_id": "sha256:c4fbeb4251a6dec1ed9564932f03ed27e7983eb81d508b9f848ac48ee65ddc9d",
+      "request_id": "sha256:0e351ff4b31d184823d8ee7878780a809f2de29b6c3f9534e077d52a53b07262",
       "schema": 1,
       "seed": 859212830,
       "size": null,
@@ -1076,6 +1100,10 @@
         "music": {
           "bars": 4,
           "beats_per_bar": 4,
+          "bed": {
+            "gain_db": -9.0,
+            "kind": "texture"
+          },
           "bpm": 90.0,
           "crossfade_s": 0.5,
           "fragment": 0,
@@ -1093,7 +1121,7 @@
       "positive": "orchestral game soundtrack, cinematic, loopable texture, sparse orchestral title theme, slow wide strings over a soft low pad, distant bells, gentle, no percussion",
       "recipe": null,
       "refs": [],
-      "request_id": "sha256:84d788d98b6c14febd21b76f4b41a2809994210c9b475835a06ca17759b66fe8",
+      "request_id": "sha256:1e388a55c1ca9b84948c652b9a4c8324b8111aace4f7a7e2158244fb3112917e",
       "schema": 1,
       "seed": 1519308258,
       "size": null,
@@ -1111,6 +1139,10 @@
         "music": {
           "bars": 4,
           "beats_per_bar": 4,
+          "bed": {
+            "gain_db": -9.0,
+            "kind": "texture"
+          },
           "bpm": 96.0,
           "crossfade_s": 0.5,
           "fragment": 2,
@@ -1128,7 +1160,7 @@
       "positive": "orchestral game soundtrack, cinematic, loopable texture, warm village theme, plucked strings, light hand percussion, welcoming",
       "recipe": null,
       "refs": [],
-      "request_id": "sha256:b1e4b8bd7503623af80c8e5778e0d28bc7349cc3c16f285dcc23c5b439cd9f6a",
+      "request_id": "sha256:817f92989dc512a380bcabfd48cd6a27ca5db7b47764a8e6cf8eaf001ab7bc56",
       "schema": 1,
       "seed": 2043393704,
       "size": null,

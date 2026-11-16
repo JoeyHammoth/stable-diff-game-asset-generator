@@ -34,7 +34,10 @@ from ..audio import (
     Audio,
     AudioBackend,
     AudioGateContext,
+    BedBackend,
+    BedRequest,
     build_audio_backend,
+    build_bed_backend,
     detect_key,
     evaluate_audio,
     fade_edges,
@@ -51,7 +54,7 @@ from ..audio import (
 )
 from ..backends.base import GenerationBackend, JobHandle, JobReport, PollState
 from ..backends.comfyui.recipe import Recipe, RecipeRegistry, load_recipes
-from ..canonical import hash_file, pretty_json
+from ..canonical import hash_file, hash_obj, pretty_json
 from ..config import Config, read_palette
 from ..errors import BackendError, SdgaError
 from ..model import SCHEMA, AssetKind, AssetSpec, GenerationRequest
@@ -224,9 +227,17 @@ def _fit_length(audio: Audio, seconds: float) -> Audio:
 
 
 def _audio_post(
-    config: Config, spec: AssetSpec, raw_path: Path, params: Mapping[str, Any]
+    config: Config,
+    spec: AssetSpec,
+    raw_path: Path,
+    params: Mapping[str, Any],
+    bed_path: Path | None = None,
 ) -> Audio:
     """The audio chain. Music loops; a one-shot fades and is normalised.
+
+    The bed is fitted to the same render length as the melody and mixed at the configured
+    gain. It is never allowed to change the melody's timing: both are cut/padded to
+    `render_s` before the sum, and the loop crossfade happens after.
 
     `trim_silence` is deliberately absent from the one-shot chain: trimming shortens the file,
     which would fail the same asset's `duration_exact` gate.
@@ -235,8 +246,17 @@ def _audio_post(
     target_peak = float(config.gates.thresholds.get("audio_peak_dbfs", -3.0))
     if spec.kind is AssetKind.MUSIC_TRACK:
         music = params["music"]
-        fitted = _fit_length(audio, float(music["render_s"]))
-        mixed = mix(fitted, None, melody_gain_db=float(music.get("melody_gain_db") or 0.0))
+        render_s = float(music["render_s"])
+        fitted = _fit_length(audio, render_s)
+        bed: Audio | None = None
+        if bed_path is not None:
+            bed_audio = read_wav(bed_path)
+            if bed_audio.sample_rate != fitted.sample_rate:
+                raise ValueError(
+                    f"bed is {bed_audio.sample_rate} Hz but the melody is {fitted.sample_rate} Hz"
+                )
+            bed = _fit_length(bed_audio, render_s)
+        mixed = mix(fitted, bed, melody_gain_db=float(music.get("melody_gain_db") or 0.0))
         looped = loop_crossfade(mixed, float(music["crossfade_s"]))
         return loudness_normalize(looped, target_peak)
     return loudness_normalize(fade_edges(audio, SFX_FADE_S), target_peak)
@@ -245,6 +265,7 @@ def _audio_post(
 def execute_audio_job(
     config: Config,
     audio_backend: AudioBackend,
+    bed_backend: BedBackend | None,
     request: GenerationRequest,
     spec: AssetSpec,
     run_dir: Path,
@@ -282,20 +303,70 @@ def execute_audio_job(
             midi_path, midi_record = _melody_midi(config, request, run_dir, name)
             record["midi"] = midi_record
 
+        bed_spec = music.get("bed") or {}
+        bed_kind = str(bed_spec.get("kind") or "none")
+        wants_bed = spec.kind is AssetKind.MUSIC_TRACK and bed_kind != "none"
         entry = None
         if cache is not None:
             entry = cache.lookup(request.request_hash, profile_hash)
-        if entry is not None and cache is not None:
-            raw_path = cache.link(entry, raw_dest)
-            record["cached"] = True
-            record["source"] = "cache"
-        else:
-            if spec.kind is AssetKind.MUSIC_TRACK:
+
+        bed_path: Path | None = None
+        raw_path: Path
+        if wants_bed:
+            # The bed is the cached artifact when there is one: it is the expensive, model-
+            # produced part. The melody is deterministic and local, so a hit re-renders it
+            # and re-mixes rather than storing a mixed file that would hide a chain change.
+            if bed_backend is None:
+                raise BackendError(
+                    "missing_capability",
+                    f"{request.asset_id}: bed {bed_kind!r} is configured but not available",
+                    remedy="set [audio] bed = 'none', 'texture' or 'musicgen' and check doctor",
+                )
+            bed_dest = run_dir / "raw" / f"{name}.bed.wav"
+            if entry is not None and cache is not None:
+                bed_path = cache.link(entry, bed_dest)
+                record["cached"] = True
+                record["source"] = "cache"
+            else:
+                bed_path = bed_backend.generate(
+                    BedRequest(
+                        prompt=request.positive,
+                        negative=request.negative,
+                        duration_s=float(music["render_s"]),
+                        seed=request.seed,
+                        sample_rate=config.audio.sample_rate,
+                    ),
+                    bed_dest,
+                )
+                if cache is not None and profile_hash:
+                    cache.store(request.request_hash, profile_hash, bed_path)
+            record["bed"] = {
+                "path": _relative(bed_path, config.root),
+                "sha256": hash_file(bed_path),
+                "kind": bed_kind,
+                "gain_db": float(bed_spec.get("gain_db") or 0.0),
+            }
+            if midi_path is None:  # pragma: no cover - music implies a melody
+                raise ValueError(f"{request.asset_id}: no melody to render")
+            raw_path = audio_backend.render_melody(midi_path, raw_dest, timbre=str(music["timbre"]))
+        elif spec.kind is AssetKind.MUSIC_TRACK:
+            if entry is not None and cache is not None:
+                raw_path = cache.link(entry, raw_dest)
+                record["cached"] = True
+                record["source"] = "cache"
+            else:
                 if midi_path is None:  # pragma: no cover - set just above
                     raise ValueError(f"{request.asset_id}: no melody to render")
                 raw_path = audio_backend.render_melody(
                     midi_path, raw_dest, timbre=str(music["timbre"])
                 )
+                if cache is not None and profile_hash:
+                    cache.store(request.request_hash, profile_hash, raw_path)
+        else:
+            if entry is not None and cache is not None:
+                raw_path = cache.link(entry, raw_dest)
+                record["cached"] = True
+                record["source"] = "cache"
             else:
                 generated = render_sfx(
                     seed=request.seed,
@@ -303,13 +374,17 @@ def execute_audio_job(
                     sample_rate=config.audio.sample_rate,
                 )
                 raw_path = write_wav(raw_dest, generated)
-            if cache is not None and profile_hash:
-                cache.store(request.request_hash, profile_hash, raw_path)
+                if cache is not None and profile_hash:
+                    cache.store(request.request_hash, profile_hash, raw_path)
 
         record["retries"] = []
         record["raw"] = [{"path": _relative(raw_path, config.root), "sha256": hash_file(raw_path)}]
+        if bed_path is not None:
+            record["raw"].append(
+                {"path": _relative(bed_path, config.root), "sha256": hash_file(bed_path)}
+            )
 
-        processed = _audio_post(config, spec, raw_path, request.params)
+        processed = _audio_post(config, spec, raw_path, request.params, bed_path)
         post_path = run_dir / "post" / f"{name}.wav"
         write_wav(post_path, processed)
         record["post"] = [
@@ -322,11 +397,11 @@ def execute_audio_job(
                 "peak_dbfs": round(processed.peak_dbfs(), 3),
             }
         ]
-        record["postprocess"] = (
-            ["loop_crossfade", "loudness_normalize"]
-            if spec.kind is AssetKind.MUSIC_TRACK
-            else ["fade_edges", "loudness_normalize"]
-        )
+        if spec.kind is AssetKind.MUSIC_TRACK:
+            prefix = ["mix"] if bed_path is not None else []
+            record["postprocess"] = [*prefix, "loop_crossfade", "loudness_normalize"]
+        else:
+            record["postprocess"] = ["fade_edges", "loudness_normalize"]
         if spec.kind is AssetKind.MUSIC_TRACK:
             record["loop"] = {
                 "start_s": 0.0,
@@ -655,6 +730,7 @@ def execute_run(
     backend: GenerationBackend,
     *,
     audio: AudioBackend | None = None,
+    bed: BedBackend | None = None,
     assets: Sequence[str] | None = None,
     recipes: RecipeRegistry | None = None,
     dry_run: bool = False,
@@ -681,7 +757,26 @@ def execute_run(
         soundfont=config.audio.soundfont,
         root=config.root,
     )
+    wants_bed = any(
+        ((request.params.get("music") or {}).get("bed") or {}).get("kind", "none") != "none"
+        for request in plan.requests
+    )
+    bed_backend: BedBackend = bed or build_bed_backend(
+        config.audio.bed,
+        url=config.audio.bed_url,
+        sample_rate=config.audio.sample_rate,
+        timeout_s=config.audio.bed_timeout_s,
+    )
+    bed_profile = bed_backend.probe() if wants_bed else None
     audio_profile = audio_backend.probe() if wants_audio else None
+    # One cache key covers both halves: switching instrument or bed invalidates, while moving
+    # a service to another host does not.
+    audio_cache_hash = hash_obj(
+        {
+            "instrument": "" if audio_profile is None else audio_profile.profile_hash,
+            "bed": "" if bed_profile is None else bed_profile.profile_hash,
+        }
+    )
     palette = palette_for(config)
     cache = ArtifactCache(
         config.root / config.project.cache_dir,
@@ -730,11 +825,12 @@ def execute_run(
             return execute_audio_job(
                 config,
                 audio_backend,
+                bed_backend,
                 request,
                 spec,
                 run_dir,
                 cache=cache,
-                profile_hash=audio_profile.profile_hash,
+                profile_hash=audio_cache_hash,
                 emit=emit,
             )
         return execute_job(
@@ -776,7 +872,10 @@ def execute_run(
         "jobs": [],
     }
     if audio_profile is not None:
-        record["audio"] = audio_profile.to_dict()
+        audio_record = audio_profile.to_dict()
+        if bed_profile is not None:
+            audio_record["bed"] = bed_profile.to_dict()
+        record["audio"] = audio_record
     if resume is not None:
         record["resumed"] = True
     # From here on a kill leaves a resumable record rather than an anonymous directory.
