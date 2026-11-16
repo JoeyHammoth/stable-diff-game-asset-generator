@@ -175,15 +175,15 @@ def _send(handler: BaseHTTPRequestHandler, status: int, content_type: str, body:
     handler.wfile.write(body)
 
 
-def _wav(seconds: float) -> bytes:
+def _wav(seconds: float, rate: int = RATE) -> bytes:
     audio = render_texture(
-        BedRequest(prompt="", negative="", duration_s=seconds, seed=1, sample_rate=RATE)
+        BedRequest(prompt="", negative="", duration_s=seconds, seed=1, sample_rate=rate)
     )
     buffer = io.BytesIO()
     with wave.open(buffer, "wb") as handle:
         handle.setnchannels(1)
         handle.setsampwidth(2)
-        handle.setframerate(RATE)
+        handle.setframerate(rate)
         pcm = array.array("h", (int(round(value * 32767)) for value in audio.channels[0]))
         handle.writeframes(pcm.tobytes())
     return buffer.getvalue()
@@ -192,12 +192,15 @@ def _wav(seconds: float) -> bytes:
 class _BedServer(BaseHTTPRequestHandler):
     payloads: list[dict] = []
     mode = "wav"
+    native_rate = RATE
 
     def do_GET(self) -> None:  # noqa: N802 - http.server names the verb this way
         if self.path != "/health":
             self.send_error(404)
             return
-        body = json.dumps({"model": "musicgen-test", "sample_rate": RATE}).encode()
+        body = json.dumps(
+            {"model": "musicgen-test", "sample_rate": type(self).native_rate}
+        ).encode()
         _send(self, 200, "application/json", body)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -207,7 +210,12 @@ class _BedServer(BaseHTTPRequestHandler):
         if type(self).mode == "json":
             _send(self, 200, "application/json", b'{"error": "not a wav"}')
             return
-        _send(self, 200, "audio/wav", _wav(float(payload["duration_s"])))
+        _send(
+            self,
+            200,
+            "audio/wav",
+            _wav(float(payload["duration_s"]), type(self).native_rate),
+        )
 
     def log_message(self, *args: object) -> None:
         pass
@@ -217,6 +225,7 @@ class _BedServer(BaseHTTPRequestHandler):
 def musicgen_server():
     _BedServer.payloads = []
     _BedServer.mode = "wav"
+    _BedServer.native_rate = RATE
     server = ThreadingHTTPServer(("127.0.0.1", 0), _BedServer)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -249,6 +258,27 @@ def test_musicgen_posts_the_track_prompt_and_the_run_records_it(tmp_path, musicg
 
     post = read_wav(root / job["post"][0]["path"])
     assert post.duration_s == pytest.approx(TARGET_S, abs=1e-3)
+
+
+def test_musicgen_runs_at_its_native_rate_and_returns_the_project_rate(tmp_path, musicgen_server):
+    url, handler = musicgen_server
+    handler.native_rate = 16000
+    backend = MusicGenBackend(url=url, sample_rate=RATE)
+    target = backend.generate(
+        BedRequest(
+            prompt="ambient bed, no lead",
+            negative="lead melody",
+            duration_s=1.0,
+            seed=7,
+            sample_rate=RATE,
+        ),
+        tmp_path / "bed.wav",
+    )
+
+    assert handler.payloads[0]["sample_rate"] == 16000
+    audio = read_wav(target)
+    assert audio.sample_rate == RATE
+    assert audio.duration_s == pytest.approx(1.0, abs=1e-3)
 
 
 def test_a_missing_musicgen_service_is_missing_capability(tmp_path: Path):

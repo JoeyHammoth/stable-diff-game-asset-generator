@@ -47,6 +47,7 @@ from ..audio import (
     read_midi,
     read_wav,
     render_sfx,
+    resample,
     tile_to_length,
     transform,
     write_midi,
@@ -253,9 +254,7 @@ def _audio_post(
         if bed_path is not None:
             bed_audio = read_wav(bed_path)
             if bed_audio.sample_rate != fitted.sample_rate:
-                raise ValueError(
-                    f"bed is {bed_audio.sample_rate} Hz but the melody is {fitted.sample_rate} Hz"
-                )
+                bed_audio = resample(bed_audio, fitted.sample_rate)
             bed = _fit_length(bed_audio, render_s)
         mixed = mix(fitted, bed, melody_gain_db=float(music.get("melody_gain_db") or 0.0))
         looped = loop_crossfade(mixed, float(music["crossfade_s"]))

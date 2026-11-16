@@ -7,8 +7,8 @@
 ##
 ## Paths in the bundle are relative to the pack, not to the bundle directory. Resolve them
 ## against the pack root (the adapter's parent is `adapters/<pack_id>/`, the pack lives under
-## `<project>/packs/<pack_id>/`). The sample self-check does not load textures, because the JSON
-## is the contract; a real importer passes an atlas texture to `make_sprite_frames`.
+## `<project>/packs/<pack_id>/`). `make_sprite_frames` slices the real sheet into one
+## `AtlasTexture` per frame by default; pass `use_atlas = false` only for a single-frame texture.
 extends RefCounted
 
 const DOCUMENTS: Array[String] = [
@@ -51,27 +51,47 @@ static func load_bundle(directory: String) -> Dictionary:
 
 ## Build a SpriteFrames resource from one sprite's descriptor.
 ##
-## `texture` is the sheet texture in a real project; `atlas_region` would be used to add one
-## AtlasTexture per frame. The sample passes a placeholder because it only checks the clip
-## structure. Named clips replace Godot's built-in `default` animation.
+## `texture` is the generated sheet. Each frame becomes an `AtlasTexture` whose `region` is the
+## cell at `frame_index` in the descriptor's grid, so clips play the authored art rather than a
+## repeated placeholder. Named clips replace Godot's built-in `default` animation.
 static func make_sprite_frames(
-	document: Dictionary, sprite_id: String, texture: Texture2D
+	document: Dictionary, sprite_id: String, texture: Texture2D, use_atlas: bool = true
 ) -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	var sprites: Dictionary = document.get("sprites", {})
 	if not sprites.has(sprite_id):
 		return frames
-	var animations: Dictionary = sprites[sprite_id].get("animations", {})
+	var sprite: Dictionary = sprites[sprite_id]
+	var animations: Dictionary = sprite.get("animations", {})
 	if not animations.has("default"):
 		frames.remove_animation("default")
+
+	var frame_size: Array = sprite.get("frame_size", [])
+	var has_grid := frame_size.size() == 2
+	var frame_width := int(frame_size[0]) if has_grid else texture.get_width()
+	var frame_height := int(frame_size[1]) if has_grid else texture.get_height()
+	var cols: int = int(max(1, int(sprite.get("cols", 1))))
+
 	for name in animations:
 		var clip: Dictionary = animations[name]
 		if not frames.has_animation(name):
 			frames.add_animation(name)
 		frames.set_animation_speed(name, float(clip.get("speed", 8.0)))
 		frames.set_animation_loop(name, bool(clip.get("loop", true)))
-		for _frame in clip.get("frames", []):
-			frames.add_frame(name, texture)
+		for frame_index in clip.get("frames", []):
+			if use_atlas and has_grid:
+				var index := int(frame_index)
+				var region := AtlasTexture.new()
+				region.atlas = texture
+				region.region = Rect2(
+					float(index % cols * frame_width),
+					float(int(floor(float(index) / float(cols))) * frame_height),
+					float(frame_width),
+					float(frame_height)
+				)
+				frames.add_frame(name, region)
+			else:
+				frames.add_frame(name, texture)
 	return frames
 
 

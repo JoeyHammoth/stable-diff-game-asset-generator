@@ -40,7 +40,7 @@ from .leitmotif import (
 from .midi import MidiFile, Note, read_midi, write_midi
 from .ops import fade_edges, loop_crossfade, loudness_normalize, mix, trim_silence
 from .synth import SynthBackend, render_midi, render_sfx
-from .wav import Audio, read_wav, write_wav
+from .wav import Audio, read_wav, resample, write_wav
 
 
 def build_audio_backend(kind: str, *, sample_rate: int, soundfont: str, root: Path) -> AudioBackend:
@@ -86,6 +86,7 @@ __all__ = [
     "read_midi",
     "read_wav",
     "render_midi",
+    "resample",
     "render_sfx",
     "resolve_music",
     "tile_to_length",

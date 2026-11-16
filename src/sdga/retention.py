@@ -7,7 +7,10 @@ An interrupted run is protected too, because deleting it would silently discard 
 ``sdga run --resume`` exists to finish.
 
 Packs are immutable, so pruning one is a deliberate removal of a published artifact. A
-pack that cannot be parsed is left untouched and reported rather than guessed at.
+pack that cannot be parsed is left untouched and reported rather than guessed at. Two explicit
+opt-ins handle the directories retention cannot reason about: ``--prune-stale`` removes run or
+pack directories with no record, and ``--force-unreadable`` removes packs whose ``pack.json``
+cannot be parsed. Neither is implied by the normal keep counts.
 """
 
 from __future__ import annotations
@@ -127,12 +130,36 @@ def _run_dirs(config: Config) -> list[Path]:
     )
 
 
+def _stale_run_dirs(config: Config) -> list[Path]:
+    """Run directories with no record at all: left by a crash before the first write."""
+    root = config.root / config.project.runs_dir
+    if not root.is_dir():
+        return []
+    return sorted(
+        (path for path in root.iterdir() if path.is_dir() and not (path / "run.json").is_file()),
+        key=lambda path: path.name,
+        reverse=True,
+    )
+
+
 def _pack_dirs(config: Config) -> list[Path]:
     root = config.root / config.project.packs_dir
     if not root.is_dir():
         return []
     return sorted(
         (path for path in root.iterdir() if path.is_dir() and (path / "pack.json").is_file()),
+        key=lambda path: path.name,
+        reverse=True,
+    )
+
+
+def _stale_pack_dirs(config: Config) -> list[Path]:
+    """Pack directories with no manifest: left by a publish interrupted before writing it."""
+    root = config.root / config.project.packs_dir
+    if not root.is_dir():
+        return []
+    return sorted(
+        (path for path in root.iterdir() if path.is_dir() and not (path / "pack.json").is_file()),
         key=lambda path: path.name,
         reverse=True,
     )
@@ -193,12 +220,16 @@ def collect_garbage(
     keep_runs: int = 20,
     keep_packs: KeepPacks = "all",
     dry_run: bool = False,
+    prune_stale: bool = False,
+    force_unreadable: bool = False,
 ) -> GcResult:
     """Select and optionally remove old runs/packs.
 
     ``keep_runs`` counts the newest runs regardless of publication; published and
     interrupted runs beyond that count are still protected. ``keep_packs`` is either
-    ``"all"`` or a count of the newest readable packs. Unreadable packs are never deleted.
+    ``"all"`` or a count of the newest readable packs. Without the opt-ins, stale run
+    directories and unreadable packs are protected and reported: their provenance cannot be
+    checked, so deleting them is a deliberate choice rather than a retention default.
     """
     if keep_runs < 0:
         raise SdgaError("--keep-runs must be >= 0", remedy="pass a non-negative count")
@@ -206,7 +237,9 @@ def collect_garbage(
         raise SdgaError("--keep-packs must be 'all' or >= 0", remedy="pass all or a count")
 
     run_dirs = _run_dirs(config)
+    stale_run_dirs = _stale_run_dirs(config)
     pack_dirs = _pack_dirs(config)
+    stale_pack_dirs = _stale_pack_dirs(config)
     published, readable_packs = _published_runs(pack_dirs)
 
     targets: list[GcTarget] = []
@@ -229,10 +262,32 @@ def collect_garbage(
             continue
         targets.append(_target(config, "runs", run_dir, "older than --keep-runs"))
 
+    for run_dir in stale_run_dirs:
+        if prune_stale:
+            targets.append(_target(config, "runs", run_dir, "stale run directory; --prune-stale"))
+        else:
+            protected.append(
+                _target(config, "runs", run_dir, "stale; pass --prune-stale to remove")
+            )
+    for pack_dir in stale_pack_dirs:
+        if prune_stale:
+            targets.append(
+                _target(config, "packs", pack_dir, "stale pack directory; --prune-stale")
+            )
+        else:
+            protected.append(
+                _target(config, "packs", pack_dir, "stale; pass --prune-stale to remove")
+            )
+
     readable_names = {path.name for path in readable_packs}
     for pack_dir in pack_dirs:
         if pack_dir.name not in readable_names:
-            protected.append(_target(config, "packs", pack_dir, "unreadable pack.json"))
+            if force_unreadable:
+                targets.append(
+                    _target(config, "packs", pack_dir, "unreadable pack.json; --force-unreadable")
+                )
+            else:
+                protected.append(_target(config, "packs", pack_dir, "unreadable pack.json"))
     if keep_packs != "all":
         for index, pack_dir in enumerate(readable_packs):
             if index >= keep_packs:

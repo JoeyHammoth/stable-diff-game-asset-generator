@@ -6,7 +6,9 @@ audio post chain that needs numpy is a dependency the whole project pays for.
 
 Samples are floats in [-1.0, 1.0], one tuple per channel. Files are written as 16-bit PCM,
 which is what a game engine loads and what every gate measures; the header is produced by
-`wave`, so the same samples always produce the same bytes.
+`wave`, so the same samples always produce the same bytes. 8-bit and 16-bit PCM are read:
+the former is what older tools and small SFX packs ship, and rejecting it forced a manual
+conversion for no gain.
 """
 
 from __future__ import annotations
@@ -23,6 +25,11 @@ PCM_MIN = -32768
 
 # A digital-silence floor, named because `-inf` is not JSON and not printable in a gate row.
 SILENCE_DBFS = -999.0
+
+# Half-width of the windowed-sinc kernel, in zero crossings. Eight is enough to keep a
+# texture bed clean at the rates a game project uses without turning resampling into a
+# dependency on a DSP package.
+RESAMPLE_RADIUS = 8
 
 
 @dataclass(frozen=True)
@@ -100,10 +107,10 @@ def gain_to_db(amplitude: float) -> float:
 
 
 def read_wav(path: Path) -> Audio:
-    """Read a 16-bit PCM WAV. Anything else is an explicit error, never a reinterpretation.
+    """Read 8-bit or 16-bit PCM WAV. Anything else is an explicit error.
 
     A float32 or 24-bit file read as 16-bit sounds like noise, so the format is checked
-    rather than assumed.
+    rather than assumed. 8-bit WAV is unsigned (`128` is silence); 16-bit is signed.
     """
     try:
         with wave.open(str(path), "rb") as handle:
@@ -113,22 +120,79 @@ def read_wav(path: Path) -> Audio:
             frames = handle.readframes(handle.getnframes())
     except (wave.Error, EOFError) as exc:
         raise ValueError(f"{path.name}: not a readable WAV file ({exc})") from None
-    if width != 2:
+    if width not in (1, 2):
         raise ValueError(
-            f"{path.name}: {width * 8}-bit audio is not supported; export 16-bit PCM WAV"
+            f"{path.name}: {width * 8}-bit audio is not supported; export 8-bit or 16-bit PCM WAV"
         )
 
-    samples = array("h")
-    samples.frombytes(frames)
-    if sys.byteorder == "big":
-        samples.byteswap()  # WAV is little-endian; array('h') is native.
-
-    per_channel = len(samples) // channels if channels else 0
-    split = [
-        tuple(samples[index * channels + channel] / PCM_MAX for index in range(per_channel))
-        for channel in range(channels)
-    ]
+    if width == 1:
+        per_channel = len(frames) // channels if channels else 0
+        split = [
+            tuple(
+                (frames[index * channels + channel] - 128) / 128.0 for index in range(per_channel)
+            )
+            for channel in range(channels)
+        ]
+    else:
+        samples = array("h")
+        samples.frombytes(frames)
+        if sys.byteorder == "big":
+            samples.byteswap()  # WAV is little-endian; array('h') is native.
+        per_channel = len(samples) // channels if channels else 0
+        split = [
+            tuple(samples[index * channels + channel] / PCM_MAX for index in range(per_channel))
+            for channel in range(channels)
+        ]
     return Audio(channels=tuple(split), sample_rate=rate)
+
+
+def resample(audio: Audio, target_rate: int) -> Audio:
+    """Band-limited resampling to `target_rate`, in pure Python.
+
+    A bed service runs at its model's rate (often 32 kHz) while a project may ask for 44.1
+    kHz. Refusing that combination made the service and the config share a hidden coupling;
+    this function removes it. The windowed-sinc kernel is scaled by the lower of the two
+    Nyquist limits, so downsampling is low-passed instead of aliased. Edge samples are
+    clamped and weights are normalised, which keeps a constant signal constant.
+    """
+    if target_rate <= 0:
+        raise ValueError(f"sample rate must be positive, got {target_rate}")
+    if target_rate == audio.sample_rate:
+        return audio
+    if audio.frame_count == 0:
+        return Audio(
+            channels=tuple(() for _ in audio.channels),
+            sample_rate=target_rate,
+        )
+
+    ratio = target_rate / audio.sample_rate
+    frames = max(1, int(round(audio.frame_count * ratio)))
+    cutoff = min(1.0, ratio)
+    radius = max(2, int(math.ceil(RESAMPLE_RADIUS / cutoff)))
+    limit = audio.frame_count - 1
+
+    channels: list[tuple[float, ...]] = []
+    for channel in audio.channels:
+        output: list[float] = []
+        for index in range(frames):
+            position = index / ratio
+            base = int(math.floor(position))
+            total = 0.0
+            norm = 0.0
+            for offset in range(-radius, radius + 1):
+                distance = position - (base + offset)
+                if abs(distance) > radius:
+                    continue
+                sample_index = min(limit, max(0, base + offset))
+                angle = distance * cutoff * math.pi
+                sinc = 1.0 if abs(angle) < 1e-12 else math.sin(angle) / angle
+                window = 0.5 + 0.5 * math.cos(math.pi * distance / radius)
+                weight = cutoff * sinc * window
+                total += channel[sample_index] * weight
+                norm += weight
+            output.append(total / norm if abs(norm) > 1e-12 else channel[min(limit, max(0, base))])
+        channels.append(tuple(output))
+    return Audio(channels=tuple(channels), sample_rate=target_rate)
 
 
 def write_wav(path: Path, audio: Audio, *, sample_rate: int | None = None) -> Path:
@@ -156,10 +220,12 @@ def write_wav(path: Path, audio: Audio, *, sample_rate: int | None = None) -> Pa
 
 __all__ = [
     "PCM_MAX",
+    "RESAMPLE_RADIUS",
     "SILENCE_DBFS",
     "Audio",
     "db_to_gain",
     "gain_to_db",
     "read_wav",
+    "resample",
     "write_wav",
 ]

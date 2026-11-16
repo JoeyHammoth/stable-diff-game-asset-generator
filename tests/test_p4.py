@@ -12,6 +12,7 @@ goes red.
 from __future__ import annotations
 
 import math
+import wave
 from pathlib import Path
 
 import pytest
@@ -40,6 +41,7 @@ from sdga.audio import (
     read_midi,
     read_wav,
     render_sfx,
+    resample,
     trim_silence,
     write_midi,
 )
@@ -347,6 +349,69 @@ def test_mix_adds_the_bed_under_the_melody():
     mixed = mix(melody, bed)
     assert mixed.frame_count == melody.frame_count
     assert mixed.peak() >= melody.peak()
+
+
+def test_mix_resamples_a_bed_recorded_at_another_rate():
+    melody = _tone(0.2, 220.0, 8000)
+    bed = _tone(0.2, 110.0, 16000)
+    mixed = mix(melody, bed)
+    assert mixed.sample_rate == melody.sample_rate
+    assert mixed.frame_count == melody.frame_count
+
+
+def test_resample_keeps_duration_and_a_constant_signal_constant():
+    source = Audio(channels=((0.5,) * 8000,), sample_rate=8000)
+    converted = resample(source, 16000)
+    assert converted.sample_rate == 16000
+    assert converted.frame_count == 16000
+    assert converted.duration_s == pytest.approx(source.duration_s, abs=1e-6)
+    assert all(abs(value - 0.5) < 1e-6 for value in converted.channels[0])
+
+
+def test_resample_attenuates_above_the_target_nyquist():
+    source = _tone(1.0, 7000.0, 16000)
+    folded = resample(source, 8000)
+    assert folded.frame_count == 8000
+    # 7 kHz is above the 4 kHz Nyquist limit of the target rate; a low-passed downsample must
+    # remove it instead of folding it back in as a 1 kHz whistle.
+    assert folded.rms() < source.rms() * 0.1
+
+
+def test_read_wav_accepts_unsigned_8_bit_pcm(tmp_path: Path):
+    target = tmp_path / "eight_bit.wav"
+    with wave.open(str(target), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(1)
+        handle.setframerate(8000)
+        handle.writeframes(bytes([128, 255, 0]))
+
+    audio = read_wav(target)
+    assert audio.sample_rate == 8000
+    assert audio.channels[0][0] == pytest.approx(0.0)
+    assert audio.channels[0][1] == pytest.approx(127 / 128)
+    assert audio.channels[0][2] == pytest.approx(-1.0)
+
+
+def test_read_midi_converts_smpte_ticks_through_seconds(tmp_path: Path):
+    # 25 fps, 40 ticks/frame, 120 bpm: 1000 ticks per second and one beat per half second.
+    # The note starts at tick 500 (one beat) and lasts 500 ticks (one beat).
+    header = b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big")
+    header += (1).to_bytes(2, "big") + bytes([0xE7, 40])
+    track = (
+        b"\x00\xff\x51\x03\x07\xa1\x20"
+        + b"\x83\x74\x90\x3c\x60"
+        + b"\x83\x74\x80\x3c\x40"
+        + b"\x00\xff\x2f\x00"
+    )
+    target = tmp_path / "smpte.mid"
+    target.write_bytes(header + b"MTrk" + len(track).to_bytes(4, "big") + track)
+
+    midi = read_midi(target)
+    assert midi.bpm == pytest.approx(120.0)
+    assert midi.ppq == 480
+    assert len(midi.notes) == 1
+    assert midi.notes[0].start == pytest.approx(1.0)
+    assert midi.notes[0].duration == pytest.approx(1.0)
 
 
 def test_peak_report_describes_the_file():

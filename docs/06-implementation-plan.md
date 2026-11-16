@@ -233,6 +233,26 @@ omitted a file. The write order is now licences, then manifest. The resumed-pack
 real subprocess mid-run, resumes it, publishes both runs, and compares every asset's file hash,
 kind, engine hints, and gate results.
 
+A final limits pass removed the code-resolvable constraints:
+
+- **Audio rates are decoupled.** `MusicGenBackend` asks the service for its native rate and
+  resamples only the bed to `[audio] sample_rate`; `mix` and `_audio_post` resample rather than
+  rejecting a rate mismatch. The resampler is a deterministic pure-Python windowed-sinc kernel,
+  so CI needs no DSP package. 8-bit unsigned PCM WAV is now read anywhere 16-bit was.
+- **SMPTE MIDI is read.** A SMPTE header division is converted from ticks through seconds into
+  quarter notes at the file tempo; written MIDI remains PPQ at 480.
+- **Retention has explicit escape hatches.** `gc --prune-stale` removes run or pack directories
+  with no record; `gc --force-unreadable` removes packs whose `pack.json` cannot be parsed. Both
+  are opt-in, so the default remains provenance-safe.
+- **The Godot sample uses real art.** `make_sprite_frames` slices the generated sheet into one
+  `AtlasTexture` per frame, and the self-check loads the generated UI texture into its
+  `NinePatchRect`. There is no placeholder texture left in the sample.
+
+Two limits remain external, not code-resolvable: training a style LoRA needs a licensed,
+reviewed dataset and a GPU training track, and a live ComfyUI smoke test needs a self-hosted GPU
+runner plus repository secrets. Both are documented as opt-in operational work, not hidden
+capabilities.
+
 ---
 
 ## 4. Frontier: what to start on Monday

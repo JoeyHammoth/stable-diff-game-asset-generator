@@ -199,6 +199,16 @@ def build_parser() -> argparse.ArgumentParser:
     gc_cmd.add_argument(
         "--dry-run", action="store_true", help="print what would be deleted without deleting"
     )
+    gc_cmd.add_argument(
+        "--prune-stale",
+        action="store_true",
+        help="delete run/pack directories with no record (otherwise protected)",
+    )
+    gc_cmd.add_argument(
+        "--force-unreadable",
+        action="store_true",
+        help="delete packs whose pack.json cannot be parsed (otherwise protected)",
+    )
     gc_cmd.add_argument("--json", action="store_true", help="emit the plan as JSON")
     gc_cmd.set_defaults(func=cmd_gc)
 
@@ -466,6 +476,8 @@ def cmd_gc(args: argparse.Namespace) -> int:
         keep_runs=args.keep_runs,
         keep_packs=args.keep_packs,
         dry_run=args.dry_run,
+        prune_stale=args.prune_stale,
+        force_unreadable=args.force_unreadable,
     )
     if args.json:
         print(json.dumps(result.to_dict(), indent=2, sort_keys=True))

@@ -329,7 +329,10 @@ the two `pack.json` files with `created`/`pack_id` excluded.
 
 ## 10. The audio path
 
-Same eight stages, different backend and ops. Two sub-pipelines:
+Same eight stages, different backend and ops. MIDI input accepts both PPQ and SMPTE header
+timing (SMPTE ticks are converted through seconds at the file tempo), and WAV input accepts
+unsigned 8-bit and signed 16-bit PCM. Output is always 16-bit PCM at the project rate.
+Two sub-pipelines:
 
 **SFX (one-shot)**
 
@@ -352,7 +355,7 @@ plan: prompt + duration + sample rate
 ```
 
 Step 4 is the important deviation from the source guide: the melody is **mixed in**, not
-conditioned for. See [05-gap-analysis.md](05-gap-analysis.md#f-music-pipeline-specifically). This is what makes "one
+conditioned for. If the bed's rate differs, only the bed is resampled before the mix. See [05-gap-analysis.md](05-gap-analysis.md#f-music-pipeline-specifically). This is what makes "one
 leitmotif across every track" a guarantee instead of a hope.
 
 A bed is a texture, not a second tune: its request carries the track prompt with a negative
@@ -370,9 +373,10 @@ mixed at a fixed gain. `[audio] bed` chooses where it comes from:
        {"prompt", "negative_prompt", "duration_s", "sample_rate", "seed"}
   ```
 
-  A missing service, wrong content type or wrong sample rate is a named `missing_capability`,
-  never a silent fall-through to a melody-only track. Resampling is not implemented: keep the
-  service and `[audio] sample_rate` in step.
+  A missing service or a non-WAV response is a named failure, never a silent fall-through to a
+  melody-only track. The service is asked for its native `sample_rate`; a returned bed at a
+  different rate is resampled to `[audio] sample_rate` with a band-limited windowed-sinc kernel,
+  so a 32 kHz model works in a 44.1 kHz project. The melody is never resampled.
 
   `tools/musicgen_server.py` is the reference implementation of that contract (torch and the
   weights are installed separately; `sdga` itself never imports them):

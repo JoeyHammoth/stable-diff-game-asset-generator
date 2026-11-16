@@ -143,6 +143,83 @@ def test_gc_prunes_old_packs_and_leaves_unreadable_ones(project: Path):
     )
 
 
+def test_gc_opt_ins_remove_stale_runs_and_unreadable_packs(project: Path):
+    config = load_config(project)
+    stale = project / "runs" / "20260101-000000-stale"
+    stale.mkdir(parents=True)
+    (stale / "raw").mkdir()
+    (stale / "raw" / "partial.png").write_bytes(b"partial")
+    stale_pack = project / "packs" / "20260101-000000-stale"
+    stale_pack.mkdir(parents=True)
+    (stale_pack / "assets").mkdir()
+    broken = project / "packs" / "broken"
+    broken.mkdir(parents=True)
+    (broken / "pack.json").write_text("{ not json", encoding="utf-8")
+
+    result = collect_garbage(
+        config, keep_runs=10, keep_packs=10, prune_stale=True, force_unreadable=True
+    )
+
+    assert {target.name for target in result.deleted} == {
+        stale.name,
+        stale_pack.name,
+        broken.name,
+    }
+    assert not stale.exists()
+    assert not stale_pack.exists()
+    assert not broken.exists()
+
+
+def test_gc_opt_ins_are_required_to_remove_unreadable_artifacts(project: Path):
+    config = load_config(project)
+    stale = project / "runs" / "20260101-000000-stale"
+    stale.mkdir(parents=True)
+    stale_pack = project / "packs" / "20260101-000000-stale"
+    stale_pack.mkdir(parents=True)
+    broken = project / "packs" / "broken"
+    broken.mkdir(parents=True)
+    (broken / "pack.json").write_text("{ not json", encoding="utf-8")
+
+    result = collect_garbage(config, keep_runs=10, keep_packs=10)
+
+    assert result.deleted == ()
+    assert stale.exists() and stale_pack.exists() and broken.exists()
+    reasons = {target.reason for target in result.protected}
+    assert "stale; pass --prune-stale to remove" in reasons
+    assert "unreadable pack.json" in reasons
+
+
+def test_gc_cli_exposes_the_opt_in_flags(project: Path, capsys):
+    stale = project / "runs" / "20260101-000000-stale"
+    stale.mkdir(parents=True)
+    broken = project / "packs" / "broken"
+    broken.mkdir(parents=True)
+    (broken / "pack.json").write_text("{ not json", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "gc",
+                "--project",
+                str(project),
+                "--keep-runs",
+                "10",
+                "--keep-packs",
+                "10",
+                "--prune-stale",
+                "--force-unreadable",
+                "--dry-run",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert {target["name"] for target in payload["targets"]} == {stale.name, broken.name}
+    assert payload["deleted"] == []
+    assert stale.exists() and broken.exists()
+
+
 def test_gc_cli_json_reports_the_plan(project: Path, capsys):
     config = load_config(project)
     _run(config)

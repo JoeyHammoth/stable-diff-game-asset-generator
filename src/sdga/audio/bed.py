@@ -21,9 +21,9 @@ Two backends, one seam:
   `probe()` reports a gap with the remedy and `generate()` raises `missing_capability` — a
   soundtrack must not silently fall back to a different instrument.
 
-A bed of the wrong duration is fitted by the caller (cut or padded to the loop length), and a
-bed of the wrong sample rate is rejected: resampling would change the melody's timing and is a
-deliberate non-goal here.
+A bed of the wrong duration is fitted by the caller (cut or padded to the loop length). A bed
+of the wrong sample rate is resampled to the project rate: the melody stays sample-exact, and
+the service is free to run at the model's native rate.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from typing import Protocol, runtime_checkable
 from ..backends.base import CapabilityGap
 from ..errors import BackendError
 from .base import AudioProfile
-from .wav import Audio, read_wav, write_wav
+from .wav import Audio, read_wav, resample, write_wav
 
 WAV_TYPES = frozenset({"audio/wav", "audio/x-wav", "audio/wave", "audio/vnd.wave"})
 
@@ -143,23 +143,35 @@ class MusicGenBackend:
     def probe(self) -> AudioProfile:
         gaps: list[CapabilityGap] = []
         model = ""
+        native_rate = self.sample_rate
         try:
             with urllib.request.urlopen(f"{self.base}/health", timeout=10) as response:
                 info = json.loads(response.read() or b"{}")
             model = str(info.get("model") or "")
             reported = info.get("sample_rate")
-            if reported is not None and int(reported) != self.sample_rate:
-                gaps.append(
-                    CapabilityGap(
-                        kind="model",
-                        item="sample rate",
-                        detail=(
-                            f"the service reports {int(reported)} Hz but [audio] sample_rate "
-                            f"is {self.sample_rate}"
-                        ),
-                        remedy=f"start MusicGen at {self.sample_rate} Hz, or change sample_rate",
+            if reported is not None:
+                try:
+                    native_rate = int(reported)
+                except (TypeError, ValueError):
+                    gaps.append(
+                        CapabilityGap(
+                            kind="model",
+                            item="sample rate",
+                            detail=f"the service reported an invalid sample rate: {reported!r}",
+                            remedy="the service must report an integer sample_rate in /health",
+                        )
                     )
-                )
+                else:
+                    if native_rate <= 0:
+                        gaps.append(
+                            CapabilityGap(
+                                kind="model",
+                                item="sample rate",
+                                detail=f"the service reported {native_rate} Hz",
+                                remedy="the service must report a positive sample_rate in /health",
+                            )
+                        )
+                        native_rate = self.sample_rate
         except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
             gaps.append(
                 CapabilityGap(
@@ -173,7 +185,7 @@ class MusicGenBackend:
                 )
             )
         return AudioProfile(
-            kind=self.kind, version=model, sample_rate=self.sample_rate, gaps=tuple(gaps)
+            kind=self.kind, version=model, sample_rate=native_rate, gaps=tuple(gaps)
         )
 
     def generate(self, request: BedRequest, dest: Path) -> Path:
@@ -184,20 +196,15 @@ class MusicGenBackend:
                 "; ".join(gap.detail for gap in profile.gaps),
                 remedy="; ".join(gap.remedy for gap in profile.gaps if gap.remedy) or None,
             )
-        if request.sample_rate != self.sample_rate:
-            raise BackendError(
-                "missing_capability",
-                f"the bed was asked for {request.sample_rate} Hz, the service runs at "
-                f"{self.sample_rate} Hz",
-                remedy="resampling is not implemented; keep [audio] sample_rate in step",
-            )
-
+        # Ask the service for its native rate; resample the returned texture to the project's
+        # rate below. This is what decouples a model's 32 kHz output from a 44.1 kHz project.
+        service_rate = profile.sample_rate
         payload = json.dumps(
             {
                 "prompt": request.prompt,
                 "negative_prompt": request.negative,
                 "duration_s": round(request.duration_s, 6),
-                "sample_rate": request.sample_rate,
+                "sample_rate": service_rate,
                 "seed": request.seed,
             }
         ).encode("utf-8")
@@ -236,12 +243,8 @@ class MusicGenBackend:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(body)
         audio = read_wav(target)
-        if audio.sample_rate != self.sample_rate:
-            raise BackendError(
-                "missing_capability",
-                f"the service returned {audio.sample_rate} Hz audio, not {self.sample_rate} Hz",
-                remedy="start the service at the configured sample rate",
-            )
+        if audio.sample_rate != request.sample_rate:
+            write_wav(target, resample(audio, request.sample_rate))
         return target
 
 

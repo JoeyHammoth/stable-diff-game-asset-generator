@@ -425,7 +425,8 @@ sdga palette extract IMAGE [--colors N] [--out PATH] [--force]
                                 # author the palette file from an image; .gpl or .png
 sdga adapt   --engine godot [--pack DIR] [--out DIR] [--fps N]
                                 # optional: emit engine data from a pack
-sdga gc      [--keep-runs N] [--keep-packs N|all] [--dry-run] [--json]
+sdga gc      [--keep-runs N] [--keep-packs N|all] [--prune-stale] [--force-unreadable]
+             [--dry-run] [--json]
                                 # prune old runs/packs; published runs are protected
 ```
 
@@ -452,10 +453,12 @@ re-hashed. An edit that happens to stay inside the palette still fails `manifest
 
 `gc` prunes directories, never individual files. `--keep-runs` keeps the newest N before
 protection; `--keep-packs` is `all` or a count of the newest readable packs. A run named by
-any published pack, a run whose status is `running`, and a pack whose `pack.json` cannot be
-parsed are protected and reported. `--dry-run` prints the same plan without deleting, and
-`--json` emits it as `{"schema": 1, "dry_run": bool, "targets": [...], "deleted": [...],
-"protected": [...], ...}`.
+any published pack, a run whose status is `running`, run/pack directories with no record, and a
+pack whose `pack.json` cannot be parsed are protected and reported. The last two require an
+explicit `--prune-stale` (stale run or pack directories) or `--force-unreadable` (unparseable
+packs), because their provenance cannot be checked automatically. `--dry-run` prints the same plan
+without deleting, and `--json` emits it as `{"schema": 1, "dry_run": bool, "targets": [...],
+"deleted": [...], "protected": [...], ...}`.
 
 `palette extract` is the one command that *writes* style data. It samples an authored image down to
 at most `--colors` colours (default: `[style] palette_colors`), writes `.gpl` or `.png` according to

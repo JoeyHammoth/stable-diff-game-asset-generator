@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 
-from .wav import SILENCE_DBFS, Audio, db_to_gain, gain_to_db
+from .wav import SILENCE_DBFS, Audio, db_to_gain, gain_to_db, resample
 
 
 def loop_crossfade(audio: Audio, fade_s: float, *, curve: str = "equal_power") -> Audio:
@@ -108,7 +108,9 @@ def mix(melody: Audio, bed: Audio | None, *, melody_gain_db: float = 0.0) -> Aud
     if bed is None:
         return Audio(channels=melody_channels, sample_rate=melody.sample_rate)
     if bed.sample_rate != melody.sample_rate:
-        raise ValueError(f"sample rates differ: melody {melody.sample_rate}, bed {bed.sample_rate}")
+        # A bed service may run at its model's native rate. Resample the texture under the
+        # untouched melody rather than forcing the two to share a hidden configuration value.
+        bed = resample(bed, melody.sample_rate)
     if bed.frame_count < melody.frame_count:
         raise ValueError("the bed is shorter than the melody")
     channels = tuple(

@@ -7,6 +7,10 @@ strict: an unsupported file is an error, not a best guess.
 
 Times are in **quarter notes**, not ticks. Ticks are a file-format detail; every transform,
 plan and gate reasons in beats, and converting once at the boundary keeps that honest.
+
+Both PPQ and SMPTE header timing are read. SMPTE ticks are absolute time, so they are
+converted through seconds into quarter notes at the file's tempo; a written file always uses
+PPQ, which is the form every downstream transform expects.
 """
 
 from __future__ import annotations
@@ -67,6 +71,16 @@ class MidiFile:
         return self.beats_per_bar * 60.0 / self.bpm
 
 
+@dataclass(frozen=True)
+class _RawNote:
+    """A note before the file's timing mode is applied; ticks are file-native."""
+
+    start_tick: int
+    duration_ticks: int
+    pitch: int
+    velocity: int
+
+
 def read_midi(path: Path) -> MidiFile:
     data = Path(path).read_bytes()
     try:
@@ -123,15 +137,30 @@ def _parse(data: bytes) -> MidiFile:
     division = int.from_bytes(data[12:14], "big")
     if fmt not in (0, 1):
         raise ValueError(f"unsupported MIDI format {fmt}; only 0 and 1 are read")
+
+    smpte_fps: float | None = None
+    ticks_per_frame = 0
     if division & 0x8000:
-        raise ValueError("SMPTE time division is not supported; save as ticks-per-quarter")
-    if division <= 0:
-        raise ValueError("time division must be positive")
+        # Header division: a negative SMPTE frame rate in the high byte and ticks per frame
+        # in the low byte. -29 is the drop-frame rate, not an integer 29.
+        signed_high = int.from_bytes(data[12:13], "big", signed=True)
+        fps = -signed_high
+        ticks_per_frame = division & 0xFF
+        if fps not in (24, 25, 29, 30):
+            raise ValueError(f"unsupported SMPTE frame rate {fps}; use 24, 25, 29 or 30")
+        if ticks_per_frame <= 0:
+            raise ValueError("SMPTE ticks per frame must be positive")
+        smpte_fps = 30_000.0 / 1001.0 if fps == 29 else float(fps)
+        ppq = DEFAULT_PPQ
+    else:
+        if division <= 0:
+            raise ValueError("time division must be positive")
+        ppq = division
 
     offset = 8 + header_length
     bpm = DEFAULT_BPM
     beats_per_bar = DEFAULT_BEATS_PER_BAR
-    notes: list[Note] = []
+    raw_notes: list[_RawNote] = []
     seen_tracks = 0
     while offset + 8 <= len(data) and seen_tracks < track_count:
         chunk_type = data[offset : offset + 4]
@@ -140,27 +169,45 @@ def _parse(data: bytes) -> MidiFile:
         if len(body) != chunk_length:
             raise ValueError("truncated track chunk")
         if chunk_type == TRACK_CHUNK:
-            track_bpm, track_meter, track_notes = _parse_track(body, division)
+            track_bpm, track_meter, track_notes = _parse_track(body)
             bpm = track_bpm or bpm
             beats_per_bar = track_meter or beats_per_bar
-            notes.extend(track_notes)
+            raw_notes.extend(track_notes)
         offset += 8 + chunk_length
         seen_tracks += 1
 
-    if not notes:
+    if not raw_notes:
         raise ValueError("no notes found")
+
+    def beat(ticks: int) -> float:
+        if smpte_fps is None:
+            return ticks / division
+        # SMPTE timing is absolute. Convert through seconds into quarter notes at the file's
+        # tempo, so the rest of the pipeline can keep reasoning in beats.
+        seconds = ticks / (smpte_fps * ticks_per_frame)
+        return seconds * bpm / 60.0
+
+    notes = [
+        Note(
+            start=beat(raw.start_tick),
+            duration=beat(max(1, raw.duration_ticks)),
+            pitch=raw.pitch,
+            velocity=raw.velocity,
+        )
+        for raw in raw_notes
+    ]
     notes.sort(key=lambda note: (note.start, note.pitch))
-    return MidiFile(notes=tuple(notes), bpm=bpm, beats_per_bar=beats_per_bar, ppq=division)
+    return MidiFile(notes=tuple(notes), bpm=bpm, beats_per_bar=beats_per_bar, ppq=ppq)
 
 
-def _parse_track(body: bytes, division: int) -> tuple[float | None, int | None, list[Note]]:
+def _parse_track(body: bytes) -> tuple[float | None, int | None, list[_RawNote]]:
     position = 0
     tick = 0
     status = 0
     bpm: float | None = None
     beats_per_bar: int | None = None
     open_notes: dict[tuple[int, int], tuple[int, int]] = {}
-    notes: list[Note] = []
+    notes: list[_RawNote] = []
 
     while position < len(body):
         delta, position = _read_vlq(body, position)
@@ -215,9 +262,9 @@ def _parse_track(body: bytes, division: int) -> tuple[float | None, int | None, 
                 if opened is not None:
                     start_tick, velocity = opened
                     notes.append(
-                        Note(
-                            start=start_tick / division,
-                            duration=max(1, tick - start_tick) / division,
+                        _RawNote(
+                            start_tick=start_tick,
+                            duration_ticks=max(1, tick - start_tick),
                             pitch=first,
                             velocity=velocity,
                         )
@@ -228,9 +275,9 @@ def _parse_track(body: bytes, division: int) -> tuple[float | None, int | None, 
     # A note left sounding at end-of-track lasts one beat, which is audible but not silent.
     for (_channel, pitch), (start_tick, velocity) in sorted(open_notes.items()):
         notes.append(
-            Note(
-                start=start_tick / division,
-                duration=max(1, tick - start_tick) / division,
+            _RawNote(
+                start_tick=start_tick,
+                duration_ticks=max(1, tick - start_tick),
                 pitch=pitch,
                 velocity=velocity,
             )

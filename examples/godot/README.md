@@ -22,18 +22,19 @@ sdga adapt --project examples --pack examples/packs/<pack_id> \
   --out /tmp/godot-bundle
 
 godot --headless --path examples/godot --script res://import_bundle.gd -- \
-  /tmp/godot-bundle
+  /tmp/godot-bundle examples/packs/<pack_id>
 ```
 
 Expected output:
 
 ```
-godot adapter sample: ok (walk 8 frames @ 10 fps, margins 31/7/31/7, buses Music,SFX)
+godot adapter sample: ok (walk 8 atlas frames @ 10 fps, sheet 256x32, UI 64x16, margins 31/7/31/7, buses Music,SFX)
 ```
 
-The self-check uses a generated placeholder texture because it verifies the data contract. In a
-real project, pass the sheet texture to `SdgaBundle.make_sprite_frames`; for an atlas, add one
-`AtlasTexture` region per frame instead of reusing one texture.
+The self-check loads the actual generated sheet and UI texture from the pack. `SpriteFrames`
+uses one `AtlasTexture` per frame, sliced from the descriptor's `frame_size`/`cols`, and the
+`NinePatchRect` receives the generated UI texture. Pass `use_atlas = false` to
+`SdgaBundle.make_sprite_frames` only when the texture is already a single frame.
 
 ## Paths
 
