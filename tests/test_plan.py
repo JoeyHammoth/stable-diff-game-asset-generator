@@ -182,6 +182,8 @@ def test_plan_carries_the_style_hash_into_every_request(project: Path):
 
 
 def test_audio_kinds_have_no_render_size(tmp_path: Path):
+    # Audio declares a duration, never a pixel size: an audio asset with `size:` is a spec
+    # error now, so the plan can only carry `None` for both sizes.
     make_project(
         tmp_path,
         assets={
@@ -191,10 +193,11 @@ def test_audio_kinds_have_no_render_size(tmp_path: Path):
                 "  - id: sfx/click\n"
                 "    kind: sfx\n"
                 "    prompt: short wooden ui click\n"
-                "    size: [1, 1]\n"
+                "    duration_s: 0.3\n"
             )
         },
     )
     request = _by_id(tmp_path, "sfx/click")
     assert request.kind is AssetKind.SFX
     assert request.size is None
+    assert request.final_size is None

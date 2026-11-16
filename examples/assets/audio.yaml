@@ -1,0 +1,113 @@
+schema: 1
+
+# Eight biome tracks and two one-shots. Every track derives from the same authored phrase
+# (`leitmotif/leitmotif_core.mid`, D minor), so "one leitmotif across the soundtrack" is a
+# property of the plan rather than a hope: the melody is rendered from the MIDI and mixed in,
+# never conditioned for (docs/04-pipeline-stages.md §10).
+#
+# `transpose` moves by scale degrees, `fragment` picks a two-bar window, `tempo_scale`
+# changes the pace without touching the meter. Length is solved from bars x beats x 60 / bpm.
+assets:
+  - id: music/title
+    kind: music_track
+    prompt: >-
+      sparse orchestral title theme, slow wide strings over a soft low pad, distant bells,
+      gentle, no percussion
+    music:
+      leitmotif: leitmotif/leitmotif_core.mid
+      bars: 4
+      bpm: 90
+      fragment: 0
+      transpose: 0
+      timbre: pad
+
+  - id: music/town
+    kind: music_track
+    prompt: warm village theme, plucked strings, light hand percussion, welcoming
+    music:
+      leitmotif: leitmotif/leitmotif_core.mid
+      bars: 4
+      bpm: 96
+      fragment: 2
+      transpose: 1
+      timbre: bell
+
+  - id: music/forest
+    kind: music_track
+    prompt: quiet forest ambience, soft pads, a slow melodic pulse, no drums
+    music:
+      leitmotif: leitmotif/leitmotif_core.mid
+      bars: 4
+      bpm: 88
+      fragment: 1
+      transpose: 2
+      timbre: pad
+
+  - id: music/snow
+    kind: music_track
+    prompt: cold high bells, sparse and airy, slow drifting texture
+    music:
+      leitmotif: leitmotif/leitmotif_core.mid
+      bars: 4
+      bpm: 84
+      fragment: 3
+      transpose: -1
+      timbre: bell
+      loop_crossfade_s: 0.75
+
+  - id: music/desert
+    kind: music_track
+    prompt: dry plucked strings, wide open space, gentle hand drum pulse
+    music:
+      leitmotif: leitmotif/leitmotif_core.mid
+      bars: 4
+      bpm: 100
+      fragment: 0
+      transpose: 3
+      timbre: pluck
+
+  - id: music/swamp
+    kind: music_track
+    prompt: low murky drone under a slow bass figure, humid and uneasy
+    music:
+      leitmotif: leitmotif/leitmotif_core.mid
+      bars: 4
+      bpm: 76
+      fragment: 2
+      transpose: -2
+      timbre: bass
+
+  - id: music/cave
+    kind: music_track
+    prompt: echoing cave ambience, distant high tones, deep slow pad
+    music:
+      leitmotif: leitmotif/leitmotif_core.mid
+      bars: 4
+      bpm: 72
+      fragment: 3
+      transpose: 4
+      timbre: pad
+      loop_crossfade_s: 1.0
+
+  - id: music/combat
+    kind: music_track
+    prompt: tense combat loop, driving plucked strings, fast pulse, no vocals
+    music:
+      leitmotif: leitmotif/leitmotif_core.mid
+      bars: 4
+      bpm: 140
+      fragment: 1
+      transpose: 5
+      timbre: pluck
+      tempo_scale: 1.1
+      loop_crossfade_s: 0.4
+
+  - id: sfx/ui_click
+    kind: sfx
+    prompt: short crisp UI click, high blip
+    duration_s: 0.3
+
+  - id: sfx/pickup
+    kind: sfx
+    prompt: bright pickup chime, ascending, short
+    duration_s: 0.5
