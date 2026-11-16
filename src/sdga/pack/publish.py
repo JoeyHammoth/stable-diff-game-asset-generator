@@ -92,6 +92,9 @@ def _engine_hints(
             "rows": layout[1],
             "frames": frames,
         }
+        clips = job.get("animations")
+        if clips:
+            hints["sprite"]["animations"] = list(clips)
 
     margins = (job.get("ui") or {}).get("margins")
     if kind in {"ui_element", "icon"} and margins:

@@ -182,14 +182,16 @@ stays available and is capability-gated with a named remedy.
 example project (19 requests, 16 assets after candidate promotion), publishes, validates the
 pack, then adapts it twice with `diff -r` between the runs. The gate asserts terrain filtering
 off, lossless pixel compression against VRAM-compressed concepts, an 8-frame `SpriteFrames`
-listing every frame, the UI margins `[31, 7]` expanded to four edges, `Music`/`SFX` buses, and a
-music loop of 341,333 frames at 32 kHz. No Godot binary exists in the job, which is the point:
-the adapter is data, and a `pack.json` with a malformed hint fails with a remedy rather than
-silently omitting a ninepatch block.
+with the named `walk` clip, four UI margins `[31, 7, 31, 7]` passed through as
+left/top/right/bottom, `Music`/`SFX` buses, and a music loop of 341,333 frames at 32 kHz. No
+Godot binary exists in the job, which is the point: the adapter is data, and a `pack.json` with
+a malformed hint fails with a remedy rather than silently omitting a ninepatch block.
 
 One deliberate split: the pack carries layout and loop points but not playback speed, so
 `--fps` (default 8) is an adapter option rather than invented data. Moving a service or an
-animation clock does not invalidate the soundtrack or the images.
+animation clock does not invalidate the soundtrack or the images. Clip names are authored per
+spec (`animations: {walk: [0, 8]}`) and stay outside the request hash, because naming a clip is
+playback metadata, not generation input: it must never regenerate a sheet that is already good.
 
 ---
 

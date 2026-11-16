@@ -121,6 +121,7 @@ assets:
     size: [32, 32]          # per cell
     frames: 8
     layout: { cols: 8, rows: 1 }
+    animations: { walk: [0, 8] }
     references:
       style_anchor: concepts/cleaned/ranger_front.png
       pose: style/skeletons/walk_8frame.png
@@ -154,6 +155,7 @@ assets:
 | `size` | final size in **pixels**; for `sprite_sheet` it is the **cell** size |
 | `frames` | required iff kind produces an animation |
 | `layout.cols * layout.rows` | must equal `frames` |
+| `animations` | `sprite_sheet` only: `{name: [start, count]}`; every clip stays within `frames`; omitted → one `default` clip over every frame |
 | `references.*` | role must be a known role; path must exist at plan time |
 | `depends_on` | ids must exist; the graph must be acyclic (checked) |
 | `params` | merged over `defaults.params`; unknown keys passed through to `${params.*}` |

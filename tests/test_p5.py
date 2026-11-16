@@ -21,7 +21,9 @@ from _project import make_project
 from sdga.adapters import adapt_godot, build_godot_bundle
 from sdga.canonical import hash_file, pretty_json
 from sdga.cli import main
+from sdga.config import load_config
 from sdga.errors import EXIT_FAILURE, SdgaError
+from sdga.specs import load_specs
 
 PACK_ID = "demo-2026-01-01-01"
 YAML_HEADER = "schema: 1\nassets:\n"
@@ -123,6 +125,71 @@ def test_ninepatch_turns_two_margins_into_four_edges(tmp_path: Path):
     assert button["path"] == "assets/ui/button_normal.png"
     # A terrain tile is not a ninepatch, even though it is an image.
     assert "terrain/moss_stone" not in assets
+
+
+def test_non_uniform_margins_pass_through_four_edges(tmp_path: Path):
+    pack = _fixture_pack(tmp_path)
+    manifest = json.loads((pack / "pack.json").read_text(encoding="utf-8"))
+    manifest["assets"][2]["engine"]["ui"]["margins"] = [1, 2, 3, 4]
+    (pack / "pack.json").write_text(pretty_json(manifest), encoding="utf-8")
+
+    adapt_godot(pack, tmp_path / "out")
+
+    margins = _read(tmp_path / "out", "ninepatch.json")["assets"]["ui/button_normal"]["margins"]
+    assert margins == {"left": 1, "top": 2, "right": 3, "bottom": 4}
+
+
+def test_named_animations_replace_the_default_clip(tmp_path: Path):
+    pack = _fixture_pack(tmp_path)
+    manifest = json.loads((pack / "pack.json").read_text(encoding="utf-8"))
+    manifest["assets"][1]["engine"]["sprite"]["animations"] = [
+        {"name": "walk", "start": 0, "count": 3},
+        {"name": "idle", "start": 3, "count": 1},
+    ]
+    (pack / "pack.json").write_text(pretty_json(manifest), encoding="utf-8")
+
+    adapt_godot(pack, tmp_path / "out")
+
+    animations = _read(tmp_path / "out", "sprite_frames.json")["sprites"]["char/hero_walk"][
+        "animations"
+    ]
+    assert animations["walk"]["frames"] == [0, 1, 2]
+    assert animations["idle"]["frames"] == [3]
+    assert "default" not in animations
+
+
+def test_an_animation_outside_the_sheet_is_an_error(tmp_path: Path):
+    pack = _fixture_pack(tmp_path)
+    manifest = json.loads((pack / "pack.json").read_text(encoding="utf-8"))
+    manifest["assets"][1]["engine"]["sprite"]["animations"] = [
+        {"name": "walk", "start": 0, "count": 5}
+    ]
+    (pack / "pack.json").write_text(pretty_json(manifest), encoding="utf-8")
+
+    with pytest.raises(SdgaError, match="outside"):
+        adapt_godot(pack, tmp_path / "out")
+
+
+def test_specs_parse_named_animations(tmp_path: Path):
+    root = make_project(
+        tmp_path / "animated",
+        toml=BASE_TOML,
+        assets={
+            "assets/char.yaml": YAML_HEADER
+            + "  - id: char/hero_walk\n"
+            + "    kind: sprite_sheet\n"
+            + "    prompt: walking hero\n"
+            + "    size: [32, 32]\n"
+            + "    frames: 4\n"
+            + "    layout: { cols: 4, rows: 1 }\n"
+            + "    animations:\n"
+            + "      walk: [0, 2]\n"
+            + "      idle: [2, 2]\n"
+        },
+        with_recipes=False,
+    )
+    spec = load_specs(load_config(root))[0]
+    assert dict(spec.animations) == {"walk": (0, 2), "idle": (2, 2)}
 
 
 def test_sprite_frames_lists_every_frame_at_the_adapter_fps(tmp_path: Path):

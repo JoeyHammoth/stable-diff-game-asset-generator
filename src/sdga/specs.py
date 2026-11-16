@@ -30,6 +30,7 @@ from .model import (
 from .paths import relative_path
 
 ID_RE = re.compile(r"^[a-z0-9_]+(/[a-z0-9_]+)+$")
+_ANIMATION_NAME = re.compile(r"^[a-z0-9_]+$")
 
 _TOP_KEYS = {"schema", "defaults", "assets"}
 _DEFAULTS_KEYS = {"params"}
@@ -41,6 +42,7 @@ _ASSET_KEYS = {
     "size",
     "frames",
     "layout",
+    "animations",
     "references",
     "params",
     "gates",
@@ -260,6 +262,7 @@ def _parse_asset(
         raise SpecError("frames must be >= 1", location=where)
 
     layout = _layout(raw.get("layout"), frames, kind, where)
+    animations = _animations(raw.get("animations"), frames, kind, where)
 
     references = _references(raw.get("references"), where, config)
     duration_s = _duration(raw.get("duration_s"), where)
@@ -323,6 +326,7 @@ def _parse_asset(
         music=music,
         frames=frames,
         layout=layout,
+        animations=animations,
         references=references,
         params=merged_params,
         gates=gates,
@@ -375,6 +379,52 @@ def _music(value: Any, kind: AssetKind, where: str) -> dict[str, Any] | None:
     if value is not None:
         raise SpecError("music: is only valid for music_track", location=where)
     return None
+
+
+def _animations(
+    value: Any, frames: int | None, kind: AssetKind, where: str
+) -> dict[str, tuple[int, int]]:
+    """Named clips as `name: [start, count]`, checked against the sheet's frame total."""
+    if value is None:
+        return {}
+    if kind not in _ANIMATED_KINDS:
+        raise SpecError(
+            f"'animations' is only valid for sprite_sheet, not {kind.value!r}",
+            location=where,
+            remedy="remove animations, or change the kind",
+        )
+    if not isinstance(value, dict):
+        raise SpecError("animations must be a mapping of name to [start, count]", location=where)
+    clips: dict[str, tuple[int, int]] = {}
+    for name, clip in value.items():
+        if not isinstance(name, str) or not _ANIMATION_NAME.match(name):
+            raise SpecError(
+                f"invalid animation name {name!r}",
+                location=where,
+                remedy="use lower-case letters, digits and underscores",
+            )
+        if not isinstance(clip, list) or len(clip) != 2:
+            raise SpecError(f"animation {name!r} must be [start, count]", location=where)
+        start, count = clip
+        if (
+            isinstance(start, bool)
+            or isinstance(count, bool)
+            or not isinstance(start, int)
+            or not isinstance(count, int)
+            or start < 0
+            or count < 1
+        ):
+            raise SpecError(
+                f"animation {name!r} needs a start >= 0 and a count >= 1", location=where
+            )
+        if frames is None or start + count > frames:
+            raise SpecError(
+                f"animation {name!r} covers frames {start}..{start + count} "
+                f"but the sheet has {frames or 0}",
+                location=where,
+            )
+        clips[name] = (start, count)
+    return clips
 
 
 def _layout(value: Any, frames: int | None, kind: AssetKind, where: str) -> tuple[int, int] | None:

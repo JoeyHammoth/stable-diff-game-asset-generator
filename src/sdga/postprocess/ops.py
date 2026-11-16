@@ -210,11 +210,13 @@ def ninepatch_mirror(image: Image.Image, ctx: OpContext) -> Image.Image:
     return _each_frame(image, ctx, mirror)
 
 
-def ninepatch_margins(image: Image.Image) -> tuple[int, int]:
-    """The uniform border size, in pixels: how many rows/columns every edge repeats.
+def ninepatch_margins(image: Image.Image) -> tuple[int, int, int, int]:
+    """The border size of each edge, in pixels: `(left, top, right, bottom)`.
 
-    A row is part of the margin when it is identical to the outermost row on that side, which
-    is exactly the region a 9-slice stretch may repeat without a visible seam.
+    An edge is part of the margin when it repeats the outermost row/column on that side, which
+    is exactly the region a 9-slice stretch may repeat without a visible seam. Each side is
+    measured independently, so a frame with a thicker top border than side borders reports it
+    instead of flattening both axes to one number.
     """
     source = image.convert("RGBA")
     raw = source.tobytes()
@@ -230,18 +232,24 @@ def ninepatch_margins(image: Image.Image) -> tuple[int, int]:
             raw[offset + x * 4 : offset + (x + 1) * 4] for offset in range(0, len(raw), stride)
         )
 
-    # Capped at (edge - 1) // 2 so a uniform image reports the largest legal margin instead
-    # of a margin that leaves no stretchable centre (the 9-slice geometric rule).
+    # Capped at (edge - 1) // 2 per side so margins can never leave an empty stretchable
+    # centre (the 9-slice geometric rule).
     vertical_cap = (height - 1) // 2
     horizontal_cap = (width - 1) // 2
 
-    vertical = 0
-    while vertical < vertical_cap and row(vertical) == row(0):
-        vertical += 1
-    horizontal = 0
-    while horizontal < horizontal_cap and column(horizontal) == column(0):
-        horizontal += 1
-    return horizontal, vertical
+    top = 0
+    while top < vertical_cap and row(top) == row(0):
+        top += 1
+    bottom = 0
+    while bottom < vertical_cap and row(height - 1 - bottom) == row(height - 1):
+        bottom += 1
+    left = 0
+    while left < horizontal_cap and column(left) == column(0):
+        left += 1
+    right = 0
+    while right < horizontal_cap and column(width - 1 - right) == column(width - 1):
+        right += 1
+    return left, top, right, bottom
 
 
 # --------------------------------------------------------------------- texture
