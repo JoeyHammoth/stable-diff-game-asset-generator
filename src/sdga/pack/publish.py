@@ -261,8 +261,10 @@ def publish(config: Config, run_dir: Path, *, allow_unreviewed: bool = False) ->
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
 
-    _write_manifest(pack_dir)
+    # LICENSES.md is part of the pack, so it must exist before the manifest hashes the tree.
+    # Writing the manifest first produced a pack that could not validate against itself.
     _write_licenses(pack_dir, config, run)
+    _write_manifest(pack_dir)
     return PackResult(pack_id=pack_id, path=pack_dir, asset_ids=tuple(a["id"] for a in assets))
 
 

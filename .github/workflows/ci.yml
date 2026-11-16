@@ -33,6 +33,9 @@ jobs:
       - name: Tests
         run: pytest -m "not slow and not gpu"
 
+      - name: Doctor on the example project
+        run: sdga doctor --project examples
+
       - name: plan.json is byte-stable
         run: |
           sdga plan --project examples
@@ -141,3 +144,27 @@ jobs:
               "audio_buses.json", "godot_import.json", "ninepatch.json", "sprite_frames.json"
           }
           PY
+
+      # P6's gate: retention must not touch a published run, and a byte-level edit that
+      # still passes the art gates must fail validation. Both run with no backend.
+      - name: "P6 gate: retention and pack integrity"
+        run: |
+          sdga gc --project examples --keep-runs 1 --keep-packs all --dry-run --json > /tmp/gc.json
+          python - <<'PY'
+          import json, pathlib
+          report = json.loads(pathlib.Path("/tmp/gc.json").read_text(encoding="utf-8"))
+          assert report["schema"] == 1
+          assert report["dry_run"] is True
+          assert report["deleted"] == []
+          assert report["protected"], "published runs must be protected"
+          assert all(target["path"] for target in report["targets"])
+          assert all(target["path"] for target in report["protected"])
+          PY
+          PACK=$(ls -d examples/packs/* | tail -1)
+          rm -rf /tmp/tampered-pack
+          cp -r "$PACK" /tmp/tampered-pack
+          printf 'tampered' >> /tmp/tampered-pack/assets/terrain/moss_stone.png
+          if sdga validate --project examples /tmp/tampered-pack; then
+            echo "validate accepted a tampered pack" >&2
+            exit 1
+          fi

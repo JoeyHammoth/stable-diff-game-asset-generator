@@ -34,8 +34,10 @@ The order is therefore:
 | **P3** | Run hygiene | Kill mid-run → resume with zero duplicate generations; second run all cache hits | 4–5 d |
 | **P4** | Audio | 8 tracks from one leitmotif, beat-aligned, seam-gated | 8–10 d |
 | **P5** | Engine + CI | CI runs the fake pipeline end-to-end on a GPU-less runner | 4–5 d |
+| **P6** | Release readiness | Old runs are prunable without losing published provenance; `validate` catches a tampered pack; a resumed run publishes the same assets | 2–3 d |
 
-Total ≈ 34–43 dev-days. P0–P1 alone (≈ 10–13 d) is a usable tool for terrain and UI.
+Total P0–P5 ≈ 34–43 dev-days; P6 adds ≈ 2–3 d. P0–P1 alone (≈ 10–13 d) is a usable
+tool for terrain and UI.
 
 ---
 
@@ -205,6 +207,31 @@ Three follow-ups closed the adapter's remaining limits:
 - `examples/godot/` is an optional runtime consumer, verified here against Godot 4.4.1 headless:
   it rebuilt the `walk` clip at 10 fps and the four margins (31/7/31/7) with real engine objects,
   and resolved the `Music`/`SFX` buses. It is not part of the generator or its GPU-less CI gate.
+
+### P6 · Release readiness
+
+P5 proved the adapter. P6 closes the remaining definition-of-done work and the operating
+promise in [07-testing-and-operations.md §6.2](07-testing-and-operations.md#62-disk-growth):
+a way to prune disk without deleting provenance, validation that checks a pack's bytes and
+not just its pixels, and an executable check that resume publishes the same assets as an
+uninterrupted run.
+
+| # | Ticket | Size | ← | Acceptance |
+|---|---|---|---|---|
+| T39 | Retention: `sdga gc --keep-runs N --keep-packs N-or-all --dry-run --json`; published runs, interrupted runs, and unreadable packs are protected | S | T29 | Dry run deletes nothing; a published run survives `--keep-runs 0`; an interrupted run is never pruned |
+| T40 | Pack/run integrity: `validate` re-hashes `MANIFEST.sha256`, each `pack.json` file's sha256/bytes, each asset's provenance fields, and each run's post artifact | M | T29 | A byte edit that still passes the gates fails `manifest`/`asset_file`; an extra or missing file fails without a backend |
+| T41 | Release gate: CI runs `doctor`, a `gc --dry-run`, tampered-pack detection, and the resumed-pack equality test | S | T26, T40 | CI proves definition-of-done items 1, 3, 4, and 5 with no GPU or ComfyUI |
+
+*Met:* `tests/test_p6.py` covers the per-ticket behaviour. `gc` protects a run named by any
+readable pack, an interrupted run (`status: running`), and a pack whose `pack.json` cannot be
+parsed; `--keep-runs 0` still cannot delete a published run's raw artifacts. `validate`
+re-hashes the manifest and every advertised asset file, rejects unlisted files, and checks
+provenance fields and run artifacts; the test changes one pixel to another in-palette colour,
+so the gates still accept the image while the manifest does not. That check immediately found a
+real defect: `publish` wrote `MANIFEST.sha256` before `LICENSES.md`, so every pack's manifest
+omitted a file. The write order is now licences, then manifest. The resumed-pack test kills a
+real subprocess mid-run, resumes it, publishes both runs, and compares every asset's file hash,
+kind, engine hints, and gate results.
 
 ---
 

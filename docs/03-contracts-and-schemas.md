@@ -425,6 +425,8 @@ sdga palette extract IMAGE [--colors N] [--out PATH] [--force]
                                 # author the palette file from an image; .gpl or .png
 sdga adapt   --engine godot [--pack DIR] [--out DIR] [--fps N]
                                 # optional: emit engine data from a pack
+sdga gc      [--keep-runs N] [--keep-packs N|all] [--dry-run] [--json]
+                                # prune old runs/packs; published runs are protected
 ```
 
 Exit codes: `0` success, `1` gate/review failure, `2` usage error, `3` backend unavailable,
@@ -442,7 +444,18 @@ unreachable queue is printed as the answer, which is more useful than a stack tr
 
 `validate` accepts a pack directory, a run directory, or a bare run id. `--json` emits
 `{"schema": 1, "ok": bool, "failures": n, "rows": [...]}` — sorted, so two invocations diff
-cleanly in CI and a reviewer sees exactly which gate moved.
+cleanly in CI and a reviewer sees exactly which gate moved. It is an integrity check as well as
+a gate check: a pack's `MANIFEST.sha256`, every file advertised in `pack.json` (sha256 and
+byte count), each asset's provenance fields, and each run's postprocessed artifact are
+re-hashed. An edit that happens to stay inside the palette still fails `manifest` or
+`asset_file`.
+
+`gc` prunes directories, never individual files. `--keep-runs` keeps the newest N before
+protection; `--keep-packs` is `all` or a count of the newest readable packs. A run named by
+any published pack, a run whose status is `running`, and a pack whose `pack.json` cannot be
+parsed are protected and reported. `--dry-run` prints the same plan without deleting, and
+`--json` emits it as `{"schema": 1, "dry_run": bool, "targets": [...], "deleted": [...],
+"protected": [...], ...}`.
 
 `palette extract` is the one command that *writes* style data. It samples an authored image down to
 at most `--colors` colours (default: `[style] palette_colors`), writes `.gpl` or `.png` according to

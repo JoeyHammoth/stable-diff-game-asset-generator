@@ -171,8 +171,12 @@ Retention is a deliberate command:
 sdga gc --keep-runs 20 --keep-packs all --dry-run
 ```
 
-Raw artifacts of *published* assets are kept forever (they are the audit trail); raw artifacts of
-rejected and superseded candidates are the first to go. Cache is always safe to delete.
+Raw artifacts of *published* assets are kept forever (they are the audit trail). A run named by
+any readable `pack.json` is therefore protected even with `--keep-runs 0`; an interrupted run
+(`status: running`) and a pack whose `pack.json` cannot be parsed are protected too. Raw
+artifacts of rejected and superseded candidates are the first to go. Cache is always safe to
+delete. `--json` makes the plan diffable in CI; deletion is refused at the first filesystem
+error rather than continuing over a half-removed directory.
 
 ### 6.3 Upgrading models or ComfyUI
 
