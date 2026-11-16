@@ -47,11 +47,14 @@ _ASSET_KEYS = {
     "candidates",
     "depends_on",
     "seed",
+    "duration_s",
+    "music",
 }
 _LAYOUT_KEYS = {"cols", "rows"}
 
 _PROMPT_OPTIONAL_KINDS = {AssetKind.NORMAL_MAP}
 _ANIMATED_KINDS = {AssetKind.SPRITE_SHEET}
+_AUDIO_KINDS = {AssetKind.SFX, AssetKind.MUSIC_TRACK}
 
 
 class _Lines:
@@ -240,7 +243,7 @@ def _parse_asset(
     if negative is not None and not isinstance(negative, str):
         raise SpecError("negative must be a string", location=where)
 
-    size = _size(raw.get("size"), where)
+    size = _size(raw.get("size"), where, kind)
 
     frames = raw.get("frames")
     if frames is not None and (isinstance(frames, bool) or not isinstance(frames, int)):
@@ -259,6 +262,28 @@ def _parse_asset(
     layout = _layout(raw.get("layout"), frames, kind, where)
 
     references = _references(raw.get("references"), where, config)
+    duration_s = _duration(raw.get("duration_s"), where)
+    music = _music(raw.get("music"), kind, where)
+
+    if kind is AssetKind.SFX and duration_s is None:
+        raise SpecError(
+            "kind 'sfx' requires 'duration_s'",
+            location=where,
+            remedy="for example: duration_s: 0.3",
+        )
+    if kind is AssetKind.MUSIC_TRACK and duration_s is not None:
+        raise SpecError(
+            "music_track derives its length from bars and bpm, not 'duration_s'",
+            location=where,
+            remedy="remove duration_s and set music.bars + music.bpm; the length is solved",
+        )
+    if kind in _AUDIO_KINDS and references:
+        raise SpecError(
+            f"kind {kind.value!r} takes no image references",
+            location=where,
+            remedy="the leitmotif named in music.leitmotif is the audio style anchor",
+        )
+
     params = _mapping(raw.get("params"), "params", where)
     gates = _mapping(raw.get("gates"), "gates", where)
 
@@ -294,6 +319,8 @@ def _parse_asset(
         prompt=prompt.strip(),
         size=size,
         negative=None if negative is None else negative.strip(),
+        duration_s=duration_s,
+        music=music,
         frames=frames,
         layout=layout,
         references=references,
@@ -306,7 +333,15 @@ def _parse_asset(
     )
 
 
-def _size(value: Any, where: str) -> tuple[int, int]:
+def _size(value: Any, where: str, kind: AssetKind) -> tuple[int, int] | None:
+    if kind in _AUDIO_KINDS:
+        if value is not None:
+            raise SpecError(
+                f"kind {kind.value!r} has no pixel size",
+                location=where,
+                remedy="declare duration_s (sfx) or a music: block (music_track) instead",
+            )
+        return None
     if (
         not isinstance(value, list)
         or len(value) != 2
@@ -318,6 +353,28 @@ def _size(value: Any, where: str) -> tuple[int, int]:
             remedy="size is in final pixels; for sprite_sheet it is the cell size",
         )
     return (int(value[0]), int(value[1]))
+
+
+def _duration(value: Any, where: str) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        raise SpecError("duration_s must be a positive number of seconds", location=where)
+    return float(value)
+
+
+def _music(value: Any, kind: AssetKind, where: str) -> dict[str, Any] | None:
+    if kind is AssetKind.MUSIC_TRACK:
+        if not isinstance(value, dict):
+            raise SpecError(
+                "kind 'music_track' requires a music: mapping",
+                location=where,
+                remedy="see docs/03-contracts-and-schemas.md section 2 for the keys",
+            )
+        return dict(value)
+    if value is not None:
+        raise SpecError("music: is only valid for music_track", location=where)
+    return None
 
 
 def _layout(value: Any, frames: int | None, kind: AssetKind, where: str) -> tuple[int, int] | None:

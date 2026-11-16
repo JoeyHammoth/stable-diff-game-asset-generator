@@ -158,8 +158,11 @@ class AssetSpec:
     id: str
     kind: AssetKind
     prompt: str
-    size: tuple[int, int]
+    # `None` for audio kinds: a track has a duration and a beat grid, not a pixel size.
+    size: tuple[int, int] | None
     negative: str | None = None
+    duration_s: float | None = None
+    music: Mapping[str, Any] | None = None
     frames: int | None = None
     layout: tuple[int, int] | None = None
     references: Mapping[str, str] = field(default_factory=dict)

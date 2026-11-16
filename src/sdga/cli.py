@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__, doctor
+from .audio import AudioBackend, build_audio_backend
 from .backends import FakeBackend, GenerationBackend
 from .backends.comfyui import ComfyUIBackend, load_recipes
 from .config import Config, load_config
@@ -24,6 +25,7 @@ from .errors import (
     SdgaError,
     UsageError,
 )
+from .model import AssetKind
 from .pack import publish
 from .palettes import extract_palette, write_palette
 from .pipeline import collect, execute_run, run_dir_for, runs_root, verify_pack, verify_run
@@ -214,11 +216,29 @@ def make_backend(config: Config) -> GenerationBackend:
     return ComfyUIBackend(config.backend, project_root=config.root)
 
 
+def make_audio_backend(config: Config) -> AudioBackend:
+    return build_audio_backend(
+        config.audio.kind,
+        sample_rate=config.audio.sample_rate,
+        soundfont=config.audio.soundfont,
+        root=config.root,
+    )
+
+
+def project_needs_audio(config: Config) -> bool:
+    try:
+        specs = load_specs(config)
+    except SdgaError:
+        return False
+    return any(spec.kind in {AssetKind.SFX, AssetKind.MUSIC_TRACK} for spec in specs)
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     config = load_config(args.project)
     backend = make_backend(config)
     recipes = load_recipes(config)
-    report = doctor.run(config, backend, recipes.requirements(config.style))
+    audio = make_audio_backend(config) if project_needs_audio(config) else None
+    report = doctor.run(config, backend, recipes.requirements(config.style), audio=audio)
     if args.json:
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
@@ -239,8 +259,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
     for request in plan.requests:
         print(
             f"  {request.asset_id:<30} {request.kind.value:<13} "
-            f"seed {request.seed:<11} final {_dims(request.final_size):<9} "
-            f"render {_dims(request.size):<9} {request.recipe or 'no recipe'}"
+            f"seed {request.seed:<11} final {_target(request):<9} "
+            f"render {_dims(request.size):<9} {_how(request)}"
         )
     print(f"wrote {_display(target, config.root)}")
 
@@ -257,6 +277,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     outcome = execute_run(
         config,
         backend,
+        audio=make_audio_backend(config),
         assets=args.asset or None,
         dry_run=args.dry_run,
         resume=args.resume,
@@ -418,6 +439,30 @@ def _dims(size: tuple[int, int] | None) -> str:
     return "n/a" if size is None else f"{size[0]}x{size[1]}"
 
 
+def _target(request: object) -> str:
+    """What the asset resolves to: pixels for images, seconds for audio."""
+    params = getattr(request, "params", {}) or {}
+    music = params.get("music") or {}
+    if music:
+        return f"{float(music.get('target_s') or 0.0):.2f}s"
+    if "duration_s" in params:
+        return f"{float(params['duration_s']):.2f}s"
+    return _dims(getattr(request, "final_size", None))
+
+
+def _how(request: object) -> str:
+    recipe = getattr(request, "recipe", None)
+    if recipe:
+        return str(recipe)
+    kind = getattr(request, "kind", None)
+    if getattr(kind, "value", "") in {"sfx", "music_track"}:
+        music = (getattr(request, "params", {}) or {}).get("music") or {}
+        if music:
+            return f"{music.get('bars')} bars @ {music.get('bpm')} bpm"
+        return "procedural " + str(getattr(kind, "value", ""))
+    return "no recipe"
+
+
 def _display(path: Path, root: Path) -> str:
     try:
         return path.resolve().relative_to(root).as_posix()
@@ -425,4 +470,4 @@ def _display(path: Path, root: Path) -> str:
         return path.as_posix()
 
 
-__all__ = ["build_parser", "main", "make_backend"]
+__all__ = ["build_parser", "main", "make_audio_backend", "make_backend"]

@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from .audio.base import AudioBackend
 from .backends import BackendProfile, GenerationBackend
 from .config import Config
 from .errors import BackendError
@@ -93,6 +94,8 @@ def run(
     config: Config,
     backend: GenerationBackend,
     requirements: Sequence[Requirement] = (),
+    *,
+    audio: AudioBackend | None = None,
 ) -> Report:
     checks: list[Check] = []
     style = config.style
@@ -146,7 +149,30 @@ def run(
     if not requirements:
         checks.append(Check("recipes", SKIPPED, "no recipes loaded for this project"))
 
+    if audio is not None:
+        checks.extend(_audio_checks(audio))
+
     return Report(checks=tuple(checks), profile=profile)
+
+
+def _audio_checks(audio: AudioBackend) -> list[Check]:
+    """The audio half of doctor: which instrument this project would record with, or why not."""
+    try:
+        profile = audio.probe()
+    except BackendError as exc:
+        return [Check("audio", FAIL, exc.message, remedy=exc.remedy)]
+    detail = f"{profile.kind} {profile.version}".strip() + f" | {profile.sample_rate} Hz"
+    checks = [Check("audio", PASS, detail)]
+    for gap in profile.gaps:
+        checks.append(
+            Check(
+                f"audio:{gap.item}",
+                FAIL if gap.kind in {"model", "tool"} else WARN,
+                gap.detail or gap.kind,
+                remedy=gap.remedy or None,
+            )
+        )
+    return checks
 
 
 def _checkpoint_check(config: Config, profile: BackendProfile) -> Check:

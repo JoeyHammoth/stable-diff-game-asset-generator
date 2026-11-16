@@ -412,6 +412,15 @@ DEFAULT_GATES: Mapping[AssetKind, tuple[str, ...]] = {
         "binary_alpha",
     ),
     AssetKind.NORMAL_MAP: ("dimensions_exact", "grid_divisible", "normal_map_valid"),
+    # Audio names resolve through `sdga.audio.gates.AUDIO_GATES`; they are listed here so
+    # `gate_names` has one registry for every kind and a spec can re-grade any of them.
+    AssetKind.SFX: ("duration_exact", "audio_peak", "audio_clip"),
+    AssetKind.MUSIC_TRACK: (
+        "beat_alignment",
+        "audio_loop_seam",
+        "audio_peak",
+        "audio_clip",
+    ),
 }
 
 

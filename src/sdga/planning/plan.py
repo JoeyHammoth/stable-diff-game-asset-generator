@@ -13,6 +13,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Protocol
 
+from ..audio import resolve_music
 from ..canonical import hash_file, hash_obj, pretty_json
 from ..config import Config
 from ..errors import SpecError
@@ -109,8 +110,14 @@ def grid_quantum(kind: AssetKind, grid: int) -> int:
     return min(grid, UI_QUANTUM) if kind in SCREEN_SPACE_KINDS else grid
 
 
-def final_size(spec: AssetSpec) -> tuple[int, int]:
-    """The size of the produced file. For a sheet that is the whole sheet, not one cell."""
+def final_size(spec: AssetSpec) -> tuple[int, int] | None:
+    """The size of the produced file. For a sheet that is the whole sheet, not one cell.
+
+    `None` for audio: a track has a duration and a beat grid, and inventing a pixel size for
+    it would put a meaningless number into `plan.json` and the pack manifest.
+    """
+    if spec.size is None:
+        return None
     if spec.kind is AssetKind.SPRITE_SHEET and spec.frames and spec.layout:
         cols, rows = spec.layout
         return (spec.size[0] * cols, spec.size[1] * rows)
@@ -132,14 +139,68 @@ def assemble_negative(style: StyleContract, spec: AssetSpec) -> str:
     return ", ".join(_normalise(anchor) for anchor in style.negative_anchors if anchor.strip())
 
 
+# A bed is texture: the authored melody is mixed in afterwards, so a bed that invents its
+# own lead fights the leitmotif instead of supporting it (docs/04 §10 steps 3-4).
+BED_NEGATIVE = ("lead melody", "vocals", "speech")
+
+
+def assemble_audio_positive(config: Config, spec: AssetSpec) -> str:
+    """Audio anchors first, subject last — the image order rule, with the audio words."""
+    parts = [anchor for anchor in config.audio.positive_anchors if anchor.strip()]
+    if spec.prompt.strip():
+        parts.append(spec.prompt)
+    return ", ".join(_normalise(part) for part in parts)
+
+
+def assemble_audio_negative(config: Config, spec: AssetSpec) -> str:
+    if spec.negative is not None:
+        return _normalise(spec.negative)
+    parts = [anchor for anchor in config.audio.negative_anchors if anchor.strip()]
+    if spec.kind is AssetKind.MUSIC_TRACK:
+        parts.extend(BED_NEGATIVE)
+    return ", ".join(_normalise(part) for part in parts)
+
+
+def audio_params(config: Config, spec: AssetSpec) -> dict[str, Any]:
+    """Resolved audio parameters, recorded in `request.params` and therefore hashed.
+
+    The leitmotif's content hash rides here, so replacing the source phrase invalidates every
+    derived track's cache entry instead of quietly keeping the old render.
+    """
+    if spec.kind is AssetKind.MUSIC_TRACK:
+        return {
+            "music": resolve_music(
+                config.root,
+                spec.music,
+                where=spec.source.location() if spec.source else spec.id,
+            )
+        }
+    return {
+        "duration_s": float(spec.duration_s or 0.0),
+        "sample_rate": config.audio.sample_rate,
+    }
+
+
+def require_size(spec: AssetSpec) -> tuple[int, int]:
+    """The pixel size, for the code paths that only exist for image assets."""
+    if spec.size is None:
+        raise SpecError(
+            f"{spec.id}: image assets need a pixel size",
+            location=spec.source.location() if spec.source else None,
+            remedy="add size: [w, h]",
+        )
+    return spec.size
+
+
 def render_size(style: StyleContract, spec: AssetSpec) -> tuple[int, int] | None:
     """Backend render size. Final size is the spec's; this is what we ask the sampler for."""
     if spec.kind in AUDIO_KINDS:
         return None
     if spec.kind is AssetKind.SPRITE_SHEET:
+        size = require_size(spec)
         cols, rows = spec.layout or (spec.frames or 1, 1)
-        sheet_w = spec.size[0] * cols
-        sheet_h = spec.size[1] * rows
+        sheet_w = size[0] * cols
+        sheet_h = size[1] * rows
         scale = min(
             style.generation_size[0] // sheet_w,
             style.generation_size[1] // sheet_h,
@@ -197,7 +258,7 @@ def _check_quantum(spec: AssetSpec, style: StyleContract) -> None:
     if spec.kind in AUDIO_KINDS:
         return  # audio has no pixel grid; duration and beat alignment are its quanta
     quantum = grid_quantum(spec.kind, style.grid)
-    for axis, dimension in zip(("width", "height"), spec.size, strict=True):
+    for axis, dimension in zip(("width", "height"), require_size(spec), strict=True):
         if dimension % quantum:
             raise SpecError(
                 f"{spec.id}: {axis} {dimension} is not a multiple of {quantum}",
@@ -212,14 +273,15 @@ def _check_quantum(spec: AssetSpec, style: StyleContract) -> None:
 def bind_context(config: Config, spec: AssetSpec, request: GenerationRequest) -> dict[str, Any]:
     """The flat namespace a recipe's `${slots}` resolve against (docs/03 §3, binder rule 2)."""
     cols, rows = spec.layout or (1, 1)
+    final = final_size(spec)
     return {
         "positive": request.positive,
         "negative": request.negative,
         "seed": request.seed,
         "width": None if request.size is None else request.size[0],
         "height": None if request.size is None else request.size[1],
-        "final_width": final_size(spec)[0],
-        "final_height": final_size(spec)[1],
+        "final_width": None if final is None else final[0],
+        "final_height": None if final is None else final[1],
         "frames": spec.frames or 1,
         "cells": {"cols": cols, "rows": rows},
         "filename_prefix": f"sdga/{spec.slug}",
@@ -286,8 +348,11 @@ def build_plan(
     requests: list[GenerationRequest] = []
     for spec in selected:
         _check_quantum(spec, style)
+        audio_kind = spec.kind in AUDIO_KINDS
         recipe = _select_recipe(spec.kind, recipes, recipe_ids)
-        if recipe is None and require_recipes:
+        # Audio kinds have no graph and therefore no recipe: the backend is a renderer, not a
+        # ComfyUI graph. Everything else must name one.
+        if recipe is None and require_recipes and not audio_kind:
             raise SpecError(
                 f"{spec.id}: no recipe for kind {spec.kind.value!r}",
                 location=spec.source.location() if spec.source else None,
@@ -295,17 +360,24 @@ def build_plan(
             )
 
         refs = resolve_refs(config, spec)
+        params = {**spec.params, **audio_params(config, spec)} if audio_kind else dict(spec.params)
+        positive = (
+            assemble_audio_positive(config, spec) if audio_kind else assemble_positive(style, spec)
+        )
+        negative = (
+            assemble_audio_negative(config, spec) if audio_kind else assemble_negative(style, spec)
+        )
         for candidate in range(max(1, spec.candidates)):
             request = GenerationRequest(
                 asset_id=spec.id,
                 kind=spec.kind,
-                backend=config.backend.kind,
-                positive=assemble_positive(style, spec),
-                negative=assemble_negative(style, spec),
+                backend=config.audio.kind if audio_kind else config.backend.kind,
+                positive=positive,
+                negative=negative,
                 seed=resolve_seed(style, spec, candidate),
                 style_hash=style_hash,
                 refs=refs,
-                params=dict(spec.params),
+                params=dict(params),
                 size=render_size(style, spec),
                 final_size=final_size(spec),
                 candidate=candidate,
@@ -329,17 +401,22 @@ def build_plan(
 
 __all__ = [
     "AUDIO_KINDS",
+    "BED_NEGATIVE",
     "PARAM_DEFAULTS",
     "Plan",
     "RecipeLike",
     "RecipeRegistryLike",
+    "assemble_audio_negative",
+    "assemble_audio_positive",
     "assemble_negative",
     "assemble_positive",
+    "audio_params",
     "bind_context",
     "build_plan",
     "final_size",
     "grid_quantum",
     "render_size",
+    "require_size",
     "resolve_refs",
     "resolve_seed",
     "upload_handle",

@@ -100,11 +100,15 @@ def write_contact_sheet(config: Config, run_dir: Path, record: Mapping[str, Any]
     for job in sorted(jobs, key=order):
         status = job.get("status")
         post = (job.get("post") or [{}])[0].get("path")
-        result = (
-            f'<img src="{html.escape(_relative(post, run_dir, config.root))}" alt="result">'
-            if post
-            else "—"
-        )
+        if post:
+            source = html.escape(_relative(post, run_dir, config.root))
+            if str(job.get("kind")) in {"sfx", "music_track"}:
+                # An audio asset is reviewed by ear; a broken <img> tells the reviewer nothing.
+                result = f'<audio controls src="{source}"></audio>'
+            else:
+                result = f'<img src="{source}" alt="result">'
+        else:
+            result = "—"
         figures: list[str] = []
         for ref in job.get("refs", []):
             role = html.escape(str(ref.get("role")))
